@@ -1,0 +1,20 @@
+Sl. no.,Consent Template Number,FIU License Type,Type of Data Fetch,Use Case Category,Purpose Code,Consent Type,FI Types requested,Maximum Transaction History Sought,Data Life,Remarks
+,Last Updated as of,7th August 2023,,,,,,,,
+1,1,HFC,One-time,Underwriting risk,103,Profile, Summary, Transactions,DEPOSIT,12 Months,30 Days,None
+2,2,HFC,Periodic,Loan Monitoring,104,Profile, Summary, Transactions,DEPOSIT,1 Month,30 Days,None
+3,3,Retirement Adviser,Periodic,PFM,102,Profile, Summary, Transactions,DEPOSIT, TERM_DEPOSIT, RECURRING_DEPOSIT,1 Year,2 Years,None
+4,4,NBFC-ICC,One-time,Underwriting risk,103,Profile, Summary, Transactions,DEPOSIT,6 Months,1 Years,None
+5,5,Private Sector Bank,One-time,Underwriting risk,103,Profile, Summary, Transactions,DEPOSIT,12 Months,0 Days,None
+6,6,RIA,Periodic,PFM,102,Profile, Summary, Transactions,DEPOSIT,1 Year,2 Years,None
+7,7,ICC,One-time,Underwriting risk,103,Transactions,DEPOSIT,185 Days,1 Months,None
+8,8,Retirement Adviser,Periodic,Wealth Management,101,Profile, Summary, Transactions,DEPOSIT, TERM_DEPOSIT, RECURRING_DEPOSIT, SIP, CP, GOVT_SECURITIES, EQUITIES, BONDS, DEBENTURES, MUTUAL_FUNDS, ETF, IDR, CIS, AIF, INSURANCE_POLICIES, NPS, INVIT, REIT, GSTR1_3B, OTHER,1 Year,1 Months,None
+9,9,Retirement Adviser,Periodic,PFM,102,Profile, Summary, Transactions,DEPOSIT, TERM_DEPOSIT, RECURRING_DEPOSIT, SIP, CP, GOVT_SECURITIES, EQUITIES, BONDS, DEBENTURES, MUTUAL_FUNDS, ETF, IDR, CIS, AIF, INSURANCE_POLICIES, NPS, INVIT, REIT, GSTR1_3B, OTHER,1 Year,1 Months,None
+10,10,Public Sector Bank,Periodic,PFM,101,Profile, Summary, Transactions,DEPOSIT, TERM_DEPOSIT,30 Days,TBA,None
+11,11,Public Sector Bank,One-time,Underwriting risk,103,Profile, Summary, Transactions,DEPOSIT, TERM_DEPOSIT, RECURRING_DEPOSIT,5 Years,TBA,None
+12,12,Private Insurance Life,One-time,Underwriting risk,103,Profile, Summary, Transactions,DEPOSIT,SIP,EQUITIES,MUTUAL_FUNDS,INSURANCE_POLICIES,6 Months,1 Days,None
+13,13,Private Insurance Life,One-time,Underwriting risk,103,Profile, Summary, Transactions,DEPOSIT,6 Months,15 Days,None
+14,14,RIA,Periodic,PFM,102,Profile, Summary, Transactions,DEPOSIT,TERM_DEPOSIT,RECURRING_DEPOSIT,EQUITIES,MUTUAL_FUNDS,INSURANCE_POLICIES,12 Months,1 Days,None
+15,15,RIA,Periodic,Wealth Management,101,Profile, Summary, Transactions,DEPOSIT,TERM_DEPOSIT,RECURRING_DEPOSIT,12 Months,1 Days,None
+16,16,Private Sector Bank,One-time,Underwriting risk,103,Profile, Summary, Transactions,DEPOSIT,6 Months,1 Years,None
+17,17,NBFC-ICC,One-time,Underwriting risk,103,Profile, Summary, Transactions,DEPOSIT,4 Months,0 Days,None
+18,18,RIA,Periodic,PFM,102,Profile, Summary, Transactions,DEPOSIT,1 Years,15 Days,None

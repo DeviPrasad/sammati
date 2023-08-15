@@ -1,0 +1,18 @@
+[package]
+authors = ["Devi Prsaad <dp@web3pleb.org>"]
+description = "Base64 encoding for UUIDs"
+edition = "2021"
+name = "sammati"
+version = "0.1.0"
+license = "Apache-2.0"
+repository = "https://github.com/deviprasad/sammati"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytes = { version = "1" }
+chrono = { version = "0.4", features = ["clock", "serde"]}
+## chrono feature: "std - interoperation with standard library types and traits."
+serde = { version = "1.0", features = ["derive"] }
+uuid = { version = "1.4", features = [ "v4"] }
+serde_json = { version = "1.0" }

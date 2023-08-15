@@ -1,0 +1,421 @@
+Sl. No.,Entity name,Category,FIP implementation stage,FIU implementation stage
+1,Bank of Baroda,Public Sector Bank,Live,Live
+2,Bank of India,Public Sector Bank,Live,Live
+3,Bank of Maharashtra,Public Sector Bank,Live,Live
+4,Canara Bank,Public Sector Bank,Live,Live
+5,Central Bank of India,Public Sector Bank,Live,Live
+6,Indian Bank,Public Sector Bank,Live,Live
+7,Indian Overseas Bank,Public Sector Bank,Live,Live
+8,Punjab & Sind Bank,Public Sector Bank,Live,Live
+9,Punjab National Bank,Public Sector Bank,Live,Live
+10,SBI,Public Sector Bank,Live,Live
+11,UCO Bank,Public Sector Bank,Live,Live
+12,Union Bank of India,Public Sector Bank,Live,Live
+13,Axis Bank,Private Sector Bank,Live,Live
+14,City Union Bank,Private Sector Bank,Live,Live
+15,Bandhan Bank,Private Sector Bank,Evaluating,Evaluating
+16,DCB Bank,Private Sector Bank,Evaluating,Evaluating
+17,Federal Bank,Private Sector Bank,Live,Live
+18,HDFC Bank,Private Sector Bank,Live,Live
+19,ICICI Bank,Private Sector Bank,Live,Live
+20,IDBI Bank,Private Sector Bank,Live,Live
+21,IDFC First Bank,Private Sector Bank,Live,Live
+22,IndusInd Bank,Private Sector Bank,Live,Live
+23,Karnataka Bank,Private Sector Bank,Live,Live
+24,Karur Vysya Bank (KVB),Private Sector Bank,Live,Live
+25,Kotak Bank,Private Sector Bank,Live,Live
+26,RBL Bank Limited,Private Sector Bank,Evaluating,Evaluating
+27,South Indian Bank,Private Sector Bank,Live,Live-enabled
+28,Yes Bank,Private Sector Bank,Live,Live
+29,Small Industries Development Bank of India (SIDBI),Financial Institution,NA,Live
+30,Bank of America,Foreign Bank,Evaluating,Testing
+31,Citibank,Foreign Bank,Evaluating,Evaluating
+32,DBS Bank,Foreign Bank,Evaluating,Testing
+33,Deutsche Bank AG,Foreign Bank,Evaluating,Evaluating
+34,HSBC Bank,Foreign Bank,Evaluating,Evaluating
+35,SBM Bank India,Foreign Bank,Evaluating,Evaluating
+36,Standard Chartered Bank,Foreign Bank,Evaluating,Evaluating
+37,AU Small Finance Bank Limited,Small Finance Bank,Live,Live
+38,Equitas Bank,Small Finance Bank,Evaluating,Evaluating
+39,ESAF Small Finance Bank,Small Finance Bank,Evaluating,Evaluating
+40,Fincare Small Finance Bank,Small Finance Bank,Live,Live
+41,Jana Small Finance Bank,Small Finance Bank,Evaluating,Evaluating
+42,Suryodaya Small Finance Bank,Small Finance Bank,Evaluating,Testing
+43,Utkarsh Small Finance Bank,Small Finance Bank,Evaluating,Evaluating
+44,Gujarat State Cooperative Bank,Co-operative Banks,Evaluating,Evaluating
+45,Kerala State Cooperative Bank,Co-operative Banks,Evaluating,Evaluating
+46,Madhya Pradesh Rajya Sahakari Bank Maryadit,Co-operative Banks,Evaluating,Evaluating
+47,Maharashtra State Cooperative Bank,Co-operative Banks,Evaluating,Evaluating
+48,Meghalaya Cooperative Apex Bank Ltd,Co-operative Banks,Evaluating,Evaluating
+49,Punjab State Cooperative Bank,Co-operative Banks,Evaluating,Evaluating
+50,Suco Bank,Co-operative Banks,In-Development,In-Development
+51,Telangana State Cooperative Bank,Co-operative Banks,Evaluating,Evaluating
+52,Bharat Financial Inclusion Ltd,MFI,NA,In-Development
+53,India Post Payments Bank,Payments Banks,Evaluating,Evaluating
+54,Jio Payments Bank,Payments Banks,In-Development,In-Development
+55,Andhra Pradesh Grameena Vikas Bank,RRB,Live,Live
+56,Andhra Pragathi Grameena Bank,RRB,Live,Live
+57,Arunachal Pradesh Rural Bank,RRB,Live,Live
+58,Aryavart Bank,RRB,Live,Live-enabled
+59,Baroda Gujarat Gramin Bank,RRB,Evaluating,Evaluating
+60,Chhattisgarh Rajya Gramin Bank,RRB,Live,Live
+61,Ellaquai Dehati Bank,RRB,Live,Live
+62,Jharkhand Rajya Gramin Bank,RRB,Live,Live
+63,J&K Grameen Bank,RRB,Evaluating,Live-enabled
+64,Karnataka Gramin Bank,RRB,Live,Live
+65,Karnataka Vikas Grameena Bank,RRB,Live,Live
+66,Kerala Gramin Bank,RRB,Live,Live
+67,Madhya Pradesh Gramin Bank,RRB,Live,Live
+68,Madhyanchal Gramin Bank,RRB,Live,Live
+69,Maharashtra Gramin Bank,RRB,Live,Live
+70,Meghalaya Rural Bank,RRB,Live,Live
+71,Mizoram Rural Bank,RRB,Live,Live
+72,Nagaland Rural Bank,RRB,Live,Live
+73,Odisha Gramya Bank,RRB,Testing,Testing
+74,Paschim Banga Gramin Bank,RRB,Live,Live
+75,Prathama UP Gramin Bank,RRB,Evaluating,Evaluating
+76,Puduvai Bharathiar Grama Bank,RRB,Live,Live
+77,Rajasthan Marudhara Gramin Bank,RRB,Live,Live
+78,Saptagiri Grameena Bank,RRB,Live,Live
+79,Saurashtra Gramin Bank,RRB,Live,Live
+80,Suryoday Small Finance Bank,RRB,Evaluating,Evaluating
+81,Tamil Nadu Grama Bank,RRB,Live,Live
+82,Telangana Grameena Bank,RRB,Live,Live
+83,Utkal Grameen Bank,RRB,Live,Live
+84,Uttarakhand Gramin Bank,RRB,Live,Live
+85,Vidharbha Konkan Gramin Bank,RRB,Live,Live-enabled
+86,Aadhar Housing Finance Limited,HFC,NA,Testing
+87,Aditya Birla Housing Finance Limited,HFC,NA,Live
+88,Agrim Housing Finance,HFC,NA,Live
+89,Art Housing Finance (India) Limited,HFC,NA,Live
+90,Aavas Financiers Limited,HFC,NA,Testing
+91,Bajaj Housing Finance Limited,HFC,NA,Live
+92,Capital India Home Loans Limited,HFC,NA,Live
+93,Easy Home Finance Limited,HFC,NA,Live
+94,Godrej Housing Finance,HFC,NA,Evaluating
+95,HDFC Ltd,HFC,NA,Live
+96,Home First Finance Company India Ltd,HFC,NA,Live
+97,IKF Home Finance Private Limited,HFC,NA,Live
+98,India Shelter Finance Corporation Limited,HFC,NA,Live
+99,KIFS Housing Finance Limited,HFC,NA,Live
+100,Mahindra Rural Housing Finance Limited,HFC,NA,Testing
+101,Motilal Oswal Housing Finance Ltd,HFC,NA,Live
+102,Piramal Capital & Housing Finance Limited,HFC,NA,Live
+103,Poonawalla Housing Finance Limited,HFC,NA,Live-enabled
+104,PNB Housing Finance Limited,HFC,NA,Testing
+105,Roha Housing Finance Private Limited,HFC,NA,Live
+106,SATYA Micro Housing Finance Private Limited,HFC,NA,Testing
+107,Shriram Housing Finance Limited,HFC,NA,Live
+108,Svatantra Micro Housing Finance Corporation Limited,HFC,NA,Testing
+109,Tata Capital Housing Finance Ltd.,HFC,NA,Live
+110,Ummeed Housing Finance Private Limited,HFC,NA,Live-enabled
+111,Vastu Housing Finance Corporation Limited,HFC,NA,Live
+112,Vridhi Finserv Home Finance Limited,HFC,NA,Live
+113,Wonder Home Finance Limited,HFC,NA,Live
+114,121 Finance Private Limited,NBFC,NA,Live
+115,Accretive Cleantech Finance Private Limited,NBFC,NA,Testing
+116,Aditya Birla Finance Limited,NBFC,NA,Testing
+117,Adani Capital Private Limited,NBFC,NA,Live
+118,Agriwise Finserv Limited,NBFC,NA,Live
+119,Akara Capital Advisors Private Limited,NBFC,NA,Live
+120,Alstromeria Capital Private Limited (Finnxt),NBFC,NA,Testing
+121,Amros Commercial Private Limited,NBFC,NA,Live
+122,APAC Financial Services Private Limited,NBFC,NA,Testing
+123,Arthashastra Epaylater Financial Private Limited,NBFC,NA,Testing
+124,Arthan Finance Private Limited,NBFC,NA,Live
+125,Aryadhan Financial Solutions Private Limited,NBFC,NA,Testing
+126,Ascend Bizcap Private Limited,NBFC,NA,Live
+127,ASK Financial Holdings Pvt Ltd,NBFC,NA,Evaluating
+128,Atmos Finance Private Limited,NBFC,NA,Testing
+129,Avanse Financial Services Limited,NBFC,NA,Testing
+130,Axis Finance,NBFC,NA,Live
+131,Aye Finance Private Limited,NBFC,NA,Live
+132,Bajaj Finance Ltd (Bajaj Finserv),NBFC-D,Live,Live
+133,Bazaari Global Finance Limited,NBFC,NA,Testing
+134,Bob Financial Solutions Limited,NBFC,NA,Live
+135,CapFloat Financial Services Private Limited (axio),NBFC,NA,Live
+136,Capital India Finance Limited,NBFC,NA,Live
+137,Capital Trust Limited,NBFC,NA,Live
+138,Capri Global Capital Limited,NBFC,NA,Live
+139,Cars24 Financial Services,NBFC,NA,Live
+140,Chinmay Finlease Limited (Lenditt),NBFC,NA,Live
+141,Cholamandalam Investment and Finance Company Limited,NBFC,NA,Live
+142,Clix Capital Services Private Limited,NBFC,NA,Testing
+143,Conatus Finserve Private Limited,NBFC,NA,Live
+144,Credit Saison,NBFC,NA,Live
+145,Credit Wise Capital,NBFC,NA,Live
+146,Creditenable,NBFC,NA,Evaluating
+147,Credright Finance Private Ltd,NBFC,NA,Live
+148,Decimus Financial Limited,NBFC,NA,Live
+149,DMI Finance Private Limited,NBFC,NA,Live
+150,DS Integrated Finsec Private Limited,NBFC,NA,Testing
+151,EarlySalary Services Private Limited,NBFC,NA,Live
+152,Eduvanz Financing Private Limited,NBFC,NA,Live
+153,Eight Finance Private Limited,NBFC,NA,Live
+154,Ekagrata Finance Private Limited,NBFC,NA,Live
+155,Electronica Finance Limited,NBFC,NA,Live
+156,Epimoney Private Limited,NBFC,NA,Live
+157,Fairassets Technologies India Private Limited,NBFC,NA,Live
+158,Faith Financials Private Limited,NBFC,NA,Testing
+159,Figital Technologies Private Limited,NBFC,NA,Live
+160,Fincfriends Private Limited,NBFC,NA,Testing
+161,Finnable Credit Private Limited ,NBFC,NA,Live
+162,Focus Capital Services Limited,NBFC,NA,Live
+163,SMFG India Credit Company Limited (Earlier Fullerton India Credit Company Limited),NBFC,NA,Live
+164,F MEC International Financial Services Ltd,NBFC,NA,Live
+165,Ganesh Ganga Investment Private Limited,NBFC,NA,Live
+166,Ganesh Leasfin Private Limited,NBFC,NA,Live
+167,Girnar Capital Private Limited,NBFC,NA,Live
+168,Glaze Barter Private Limited,NBFC,NA,Testing
+169,Godrej Finance Limited,NBFC,NA,Testing
+170,Goldline Finance Private Limited,NBFC,NA,Live
+171,Gromor Finance Private Limited,NBFC,NA,Live
+172,Gyandhan Financial Service Private Limited,NBFC,NA,Live
+173,Harvinder Finance Company,NBFC,NA,Live
+174,HDB Financial Services Limited,NBFC,NA,Live
+175,HDFC Credila Financial Services Limited,NBFC,NA,In-Development
+176,Hero Fincorp Limited,NBFC,NA,Testing
+177,Helpage Finlease Private Limited,NBFC,NA,Live
+178,Hinduja Leyland Finance Limited,NBFC,NA,Live
+179,Home Credit India Finance Private Limited,NBFC,NA,Testing
+180,Hytone Holdings Private Limited,NBFC,NA,Live
+181,i-Loan Credit Products Private Limited,NBFC,NA,Live
+182,IIFL (India Infoline Finance),NBFC,NA,Live
+183,Incred Finance,NBFC,NA,Live
+184,Indian School Finance Company Private Limited,NBFC,NA,Live
+185,Innofin Solutions Private Limited (LendenClub),NBFC,NA,Live
+186,Inventure Finance Pvt Ltd,NBFC,NA,In-Development
+187,Kaleidofin Capital Private Limited,NBFC,NA,Testing
+188,Kinara Capital Private Limited,NBFC,NA,Live-enabled
+189,Krazybee Service Pvt Limited,NBFC,NA,Live
+190,K. M. Global Credit Private Limited (Creditfair),NBFC,NA,Live
+191,Kudos Finance & Investments Private Limited,NBFC,NA,Live
+192,Lendingkart Finance Limited,NBFC,NA,Live
+193,LivFin India Private Limited,NBFC,NA,Live
+194,LoanTap Credit Products Private Limited,NBFC,NA,Live
+195,Lok Suvidha Finance Limited,NBFC,NA,Live
+196,Lord Fincap Ltd,NBFC,NA,Live
+197,L&T Finance Limited,NBFC,NA,Live
+198,Mahindra & Mahindra Financial Services Limited,NBFC-D,In-Development,Live
+199,Mamta Projects Private Limited,NBFC,NA,Live
+200,Manappuram Finance Limited,NBFC,NA,Live
+201,MAS Financial Services Limited,NBFC,NA,Live
+202,Great Meera Finlease Private Limited,NBFC,NA,Testing
+203,Mintifi Finserve Private Limited,NBFC,NA,In-development
+204,Moneyplus Financial Services Private Limited,NBFC,NA,Testing
+205,Monk Capital Private Limited (Fee Monk),NBFC,NA,Live
+206,mPokket Financial Services Pvt Ltd.,NBFC,NA,Live
+207,Muthoot Finance Limited,NBFC,NA,Live
+208,MyLoanCare Ventures Private Limited,NBFC,NA,Live
+209,Nahar Credits Private Limited,NBFC,NA,In-Development
+210,Narottamka Mercantile Private Limited,NBFC,NA,Live-enabled
+211,Navi Finserv Private Limited,NBFC,NA,Live
+212,NDX P2P Private Limited,NBFC,NA,Live
+213,NeoGrowth Credit,NBFC,NA,Live
+214,Northern Arc Capital,NBFC,NA,Evaluating
+215,Origa Lease Finance Private Limited,NBFC,NA,Live
+216,Oricred Finserv Private Limited,NBFC,NA,Live
+217,Oxyzo Financial Services,NBFC,NA,Live
+218,Parfait Finance & Investments Private Limited,NBFC,NA,Live
+219,Paisalo Digital Limited,NBFC,NA,Live
+220,Payme India,NBFC,NA,Live
+221,PayU Finance India Private Limited,NBFC,NA,Live
+222,Poonawalla Fincorp,NBFC,NA,Evaluating
+223,Protium Finance Limited,NBFC,NA,Live
+224,Quadrillion Finance Private Limited,NBFC,NA,Live
+225,Red Fort Capital Finance Company Private Limited,NBFC,NA,Live
+226,Reliance Retail Finance Limited,NBFC,NA,Live
+227,Rinkpi Finance & Consultants Pvt Ltd,NBFC,NA,Testing
+228,Riviera Investors Private Limited,NBFC,NA,Live
+229,Rpn Fintralease And Securities,NBFC,NA,Testing
+230,Ruptok Capital Private Limited,NBFC,NA,Live
+231,R.K. Bansal Finance Limited,NBFC,NA,Live
+232,Sai Roshni Capital Private Limited (EZFINANZ),NBFC,NA,Live
+233,Salora Capital Limited (Dhanrashi),NBFC,NA,Live
+234,Sampathi Credits Private Limited (Friendloan),NBFC,NA,Live
+235,Sampati Securities Limited (Creditt),NBFC,NA,Testing
+236,Sarvagram Fincare Private Limited,NBFC,NA,Live
+237,SBI Cards and Payment Services Limited,NBFC,NA,Live
+238,Shriram Finance Limited,NBFC,NA,Testing
+239,Shubharambh Capital Finance Private Limited,NBFC,NA,Testing
+240,Singularity Creditworld Private Limited,NBFC,NA,Live
+241,SK Finance Limited,NBFC,NA,Live
+242,Si Creva Capital Services Private Limited,NBFC,NA,Live
+243,Snapmint Financial Services Private Limited,NBFC,NA,Live
+244,Speel Finance Company Private Limited (Pocketly),NBFC,NA,Live
+245,Stride One Capital Limited,NBFC,NA,Live
+246,STK Credit Private Limited,NBFC,NA,Live-enabled
+247,Sundaram Finance,NBFC,NA,Evaluating
+248,Swara Fincare Limited,NBFC,NA,Live
+249,Seeds Fincap Private Limited,NBFC,NA,Live
+250,T J Financial Consultancy & Investments Private Limited,NBFC,NA,Testing
+251,Tapstart Capital Private Limited,NBFC,NA,Live
+252,Tata Capital Financial Services Ltd,NBFC,NA,Live
+253,Techfino Capital Private Limited,NBFC,NA,Live-enabled
+254,Thazhayil Finance Private Limited,NBFC,NA,Live
+255,Trillions Fintech Private Limited,NBFC,NA,Live
+256,Trimurti Fincap Private Limited,NBFC,NA,Live
+257,True Credits Private Limited (True Balance),NBFC,NA,Live
+258,TVS Credit Services Limited,NBFC,NA,Live
+259,U GRO Capital,NBFC,NA,Live
+260,Upmove Capital Pvt Ltd,NBFC,NA,Live
+261,U.Y. Fincorp Limited,NBFC,NA,Testing
+262,Vaibhav Vyapaar Private Limited,NBFC,NA,Live
+263,Vastu Finserve India Private Limited,NBFC,NA,Live
+264,Venus Portfolio and Finance Private Limited,NBFC,NA,Testing
+265,Vivifi India Finance (P) Ltd,NBFC,NA,Testing
+266,Visionary Financepeer Private Limited,NBFC,NA,Live
+267,Vistaar Financial Services Private Limited,NBFC,NA,Live
+268,Whizdm Finance Private Limited,NBFC,NA,Live
+269,Wortgage Finance Pvt,NBFC,NA,Live
+270,Monexo Fintech Private Limited,NBFC-P2P,NA,Live
+271,Muthoot Forex Limited,AD-II,NA,Live
+272,Dreampurse Technologies Private Limited,PPI,NA,Live
+273,One MobiKwik Systems Limited,PPI,NA,Testing
+274,A&A Dukaan Financial Services Pvt Ltd,POP,Evaluating,Live
+275,Valuefloat Technologies Private Limited,POP-SE,Evaluating,Testing
+276,Mynd Solutions Private Limited (M1xchange),TReDS,NA,Live
+277,Receivables Exchange of India Limited,TReDS,NA,Live
+278,Lunchbrake Technologies Private Limited (Fold Money),Retirement Adviser,NA,Live
+279,Wealthisle Future Private Limited,Retirement Adviser,NA,Live-enabled
+280,ACKO Life Insurance Limited,Private Sector Life,Evaluating,Testing
+281,Aditya Birla Sun Life Insurance Ltd,Private Sector Life,Testing,Live
+282,Aegon Life Insurance,Private Sector Life,In-Development,Live
+283,Ageas Federal Life Insurance Company Limited,Private Sector Life,In-Development,Testing
+284,Aviva Life Insurance Company India Limited,Private Sector Life,Live-enabled,Live
+285,Bajaj Allianz Life Insurance,Private Sector Life,Live-enabled,Live
+286,Bharti Axa Life Insurance,Private Sector Life,In-Development,Live
+287,Canara HSBC Life Insurance,Private Sector LIfe,Live,Live
+288,Edelweiss Tokio Life Insurance,Private Sector Life,Live,Live
+289,Future Generali India Insurance Company Ltd,Private Sector Life,Live,Live
+290,HDFC Life Insurance,Private Sector Life,Live,Live
+291,ICICI Prudential Life Insurance,Private Sector Life,Live,Live
+292,India First Life Insurance Company Limited,Private Sector Life,Live,Live
+293,Kotak Mahindra Life Insurance Company Limited,Private Sector Life,Evaluating,Live-enabled
+294,Max Life Insurance Company Limited,Private Sector Life,Live,Live
+295,PNB MetLife India Insurance Company Limited,Private Sector Life,Live,Live
+296,Pramerica Life Insurance Company Limited,Private Sector Life Insurance,Live,Live
+297,Reliance Nippon Life Insurance Company Limited,Private Sector Life Insurance,Evaluating,Evaluating
+298,SBI Life Insurance Company Limited,Private Sector Life,Live,Live
+299,Shriram Life Insurance Company Limited,Private Sector Life,Live,Live
+300,Star Union Daichi Life Insurance,Private Sector Life,Evaluating,Evaluating
+301,TATA AIA Life Insurance,Private Sector Life,Live,Live
+302,United India Insurance Company Limited,Private Sector Life,Evaluating,Testing
+303,Bajaj Allianz General Insurance Company Limited,Private Sector Non Life,Testing,Live
+304,Go Digit General Insurance Limited       ,Private Sector Non Life,Evaluating,Testing
+305,HDFC Ergo,Private Sector Non Life,Live,Live-enabled
+306,ICICI LOMBARD General Insurance Company Limited,Private Sector Non Life,In-Development,In-Development
+307,Magma HDI General Insurance,Private Sector Non LIfe,Evaluating,Evaluating
+308,Raheja QBE General Insurance Company Limited,Private Sector Non Life,Evaluating,Testing
+309,Reliance General Insurance Company Limited,Private Sector Non Life,Evaluating,Testing
+310,Royal Sundaram General Insurance Co Limited,Private Sector Non Life,Testing,Testing
+311,SBI General Insurance Company Limited,Private Sector Non Life,In-Development,Live
+312,Tata AIG General Insurance Company Limited,Private Sector Non Life,Evaluating,Evaluating
+313,Life Insurance Corporation of India,Public Sector Life,Testing,Live-enabled
+314,The New India Assurance Company Limited,Public Sector Non Life,In-Development,Testing
+315,Care Health Insurance Limited,Health Insurer,NA,Testing
+316,Neotec Insurance Brokers Ltd,Insurance Broker,NA,Testing
+317,Policybazaar Insurance Brokers Pvt Ltd,Insurance Broker,NA,Live
+318,Girnar Insurance Brokers Private Limited (Insurance dekho),Insurance Broker,NA,Live
+319,Banksathi Technologies And Insurance Corporate Agency Private Limited,Corporate Agents,NA,Testing
+320,CreditMantri Finserve Private Limited,Corporate Agents,NA,In-Development
+321,Neo Opportunities Fund Trust,AIF,NA,Live
+322,NSDL,Depository,Live,In-Development
+323,Central Depository Services (India) Limited (CDSL),Depository,Live,Evaluating
+324,5Paisa Capital Limited,Stock Broker,NA,Live
+325,Alice Blue Financial Services Pvt Ltd,Stock Broker,NA,Live
+326,Angel Broking,Stock Broker,NA,Testing
+327,Angel One Limited,Stock Broker,NA,Live
+328,Astha Credit & Securities Private limited,Stock Broker,NA,Live
+329,Centrum Capital Ltd,Stock Broker,NA,In-Development
+330,Edelweiss Financial Services Limited,Stock Broker,NA,Evaluating
+331,Elixir Equities Private Limited,Stock Broker,NA,Testing
+332,Equirus Wealth Private Limited,Stock Broker,NA,Live
+333,Fyers Securities Private Limited,Stock Broker,NA,Testing
+334,Geojit Financial Services Limited,Stock Broker,NA,Live
+335,ICICI Securities,Stock Broker,NA,Live
+336,Inditrade Capital Ltd,Stock Broker,NA,Testing
+337,Market Pulse Securities Private Limited,Stock Broker,NA,Live
+338,Moneylicious Securities Private Limited (Dhan),Stock Broker,NA,Live-enabled
+339,NU Investment Pvt. Ltd.,Stock Broker,NA,Live
+340,Prabhudas Lilladher Private Limited,Stock Broker,NA,Testing
+341,Prudent Corporate Advisory Services Limited,Stock Broker,NA,Live
+342,RKSV Securities India Pvt Ltd,Stock Broker,NA,Live
+343,Rudra Share and Stock Brokers Limited,Stock Broker,NA,Live
+344,Spenny Fintech Private Limited,Stock Broker,NA,Live
+345,Stockal Securities Pvt. Ltd.,Stock Broker,NA,Testing
+346,Tata Securities Ltd.,Stock Broker,NA,Evaluating
+347,Torus Financial Markets Private Limited,Stock Broker,NA,Live
+348,Zerodha Broking Limited,Stock Broker,NA,Live-enabled
+349,ASK Property Investment Advisors Private Limited,Portfolio Manager,NA,Evaluating
+350,ASK Investment Managers Limited,Portfolio Manager,NA,Evaluating
+351,Dezerv Investments Private Limited,Portfolio Manager,NA,Live
+352,Jama Wealth Asset Management Private Limited,Portfolio Manager,NA,Live
+353,Svobodha Infinity Investment Advisors Private Limited,Portfolio Manager,NA,Testing
+354,Parag Parikh Financial Advisory Services Limited,Portfolio Manager,NA,Testing
+355,Cholamandalam Securities Limited,Research Analyst,NA,Testing
+356,Kredent Infoedge Private Limited,Research Analyst,NA,Testing
+357,Mool Capital ,Research Analyst,NA,Live-enabled
+358,PrimeInvestor Financial Research Private Limited,Research Analyst,NA,Testing
+359,Sampadha,Research Analyst,NA,Live
+360,SMC Global Securities Ltd,Research Analyst,NA,Testing
+361,Alpha Capital,RIAs,NA,Live
+362,Alphaware Advisory Services Private Limited,RIAs,NA,Testing
+363,Amica Investment Advisers Private Limited,RIAs,NA,Live
+364,ASK Wealth Advisors Private Limited,RIAs,NA,Evaluating
+365,Bajaj Finserv Direct Limited (Bajaj Markets),RIAs,NA,Live
+366,Circle Wealth Advisors Private Limited,RIAs,NA,Evaluating
+367,Epifi Wealth Private Limited,RIAs,NA,Live
+368,Fee Only Investment Advisers LLP,RIAs,NA,Live
+369,Financial Hospital Advisor,RIAs,NA,Testing
+370,Finurja India Pvt Ltd,RIAs,NA,Testing
+371,Finvasia Financial Services Private Limited,RIAs,NA,Testing
+372,Finzoom Investment Advisors Private Limited,RIAs,NA,Live
+373,GoalTeller,RIAs,NA,Live
+374,Groww,RIAs,NA,Live
+375,HDFC Securities Limited,RIAs,NA,Testing
+376,Karat Capital Advisors Private Limited,RIAs,NA,Testing
+377,Kairos Capital Private Limited,RIAs,NA,Testing
+378,Mobikwik Investment Advisors,RIAs,NA,Live
+379,O3 Bhuvi Advisors,RIAs,NA,Live
+380,Oyepaisa Consulting Private Limited,RIAs,NA,Live
+381,Paisabazaar,RIAs,NA,Live
+382,PRP Professional Edge Associates Private Limited,RIAs,NA,Live
+383,Safejar Advisers Private Limited,RIAs,NA,Live-enabled
+384,Samco Securities Limited,RIAs,NA,Live
+385,Scripbox,RIAs,NA,In-Development
+386,Sigfyn Wealth Management Pvt. Ltd,RIAs,NA,Live
+387,Simply Grow Technologies,RIAs,NA,Evaluating
+388,White Oak Capital Management,RIAs,NA,In-Development
+389,1 Finance Private Limited,RIAs,NA,Live
+390,KFin Technologies Limited,RTA,NA,Testing
+391,Computer Age Management Services Limited (myCAMS),RTA,NA,Live
+392,Wayne Secure Digital RTA Private Limited,RTA,NA,Testing
+393,Goods and Services Tax Network,GST,Live,Evaluating
+394,KFin Technologies Limited (NPS),CRA,Live,Testing
+395,Protean eGov Technologies Limited (NPS),CRA,Live,Evaluating
+396,Computer Age Management Services Limited,CRA,Live,Evaluating
+397,National Bank for Agriculture and Rural Development,NABARD,NA,Testing
+398,360 One Asset Managemet Ltd,AMC,Live,Evaluating
+399,Aditya Birla Sunlife AMC Limited,AMC,Live,Testing
+400,Bajaj Finserv Mutual Fund,AMC,Evaluating,Live
+401,Bandhan Asset Management Company Limited,AMC,Live,Testing
+402,DSP Asset Managers,AMC,Live,Testing
+403,Franklin Templeton Asset Management (India) Ltd.,AMC
+,Live,Evaluating
+404,HDFC Asset Management Company Limited,AMC
+,Live,Evaluating
+405,HSBC Asset Management (India) Private Limited,AMC,Live,Testing
+406,ICICI Prudential Asset Management Company Ltd,AMC,Live,Testing
+407,Kotak Mahindra Asset Management Company Limited,AMC,Live,Live
+408,Mahindra Manulife Investment Management Company Pvt Ltd,AMC
+,Live,In Development
+409,Navi Asset Management Company,AMC
+,Live,Testing
+410,PPFAS Asset Management Private Limited,AMC,Live,Testing
+411,SBI Funds Management Limited,AMC,Live,Testing
+412,Shriram Asset Management Company Limited,AMC,Live,Evaluating
+413,TATA Asset Management Limited,AMC,Live,Evaluating
+414,Union Asset Management Company Private Ltd,AMC,Live,Evaluating
+415,White Oak Capital Asset Management Limited,AMC,Live,Testing
+,Last updated,4th August 2023,,
