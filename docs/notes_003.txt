@@ -1,0 +1,4 @@
+
+Paseto (Platform-Agnostic SEcurity TOkens) is a specification and reference implementation for secure stateless tokens.
+
+https://github.com/dconnolly/paseto

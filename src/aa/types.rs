@@ -1,17 +1,17 @@
 #![allow(dead_code)]
 
 use crate::ets::Timestamp;
-/// https://api.rebit.org.in/viewSpec/AA_2_0_0.yaml
 use crate::types::{Base64EncUuid, FIPAccLinkRef, FIPId, FinInfo, TxId};
 use serde::Serialize;
 
-// API managed by AA
-// Used by FIU once it recieves the data ready notification. FIU asks AA to fetch FI.
+/// API managed by AA
+/// https://api.rebit.org.in/viewSpec/AA_2_0_0.yaml
+/// used by FIU once it recieves the data ready notification. FIU asks AA to fetch FI.
 #[derive(Clone, Debug, Serialize)]
 pub struct FIFetchRequest {
-    /// (required) API version = "2.0.0"
+    /// API version = "2.0.0"
     pub ver: String,
-    /// (required) creation timestamp of the message
+    /// creation timestamp of the message
     pub timestamp: Timestamp,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
@@ -19,23 +19,20 @@ pub struct FIFetchRequest {
     /// AA creates a fresh session_id value for each FI access request made by FIU or AA Client.
     pub session_id: Base64EncUuid,
     // FIP ID as defined in the Account Aggregator Ecosystem.
-    // optional feild.
     pub fip_id: Option<FIPId>,
     // Unique reference number assigned by FIP as part of Account Linking Process.
-    // optional feild.
     pub link_ref_num: Option<Vec<FIPAccLinkRef>>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct FiFetchResponse {
-    /// (required) API version = "2.0.0"
+    /// API version = "2.0.0"
     pub ver: String,
-    /// (required) creation timestamp of the message
+    /// creation timestamp of the message
     pub timestamp: Timestamp,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     // Account-specific metadata with corresponding encrypted data for accessing the finanical information
-    // (required)
     pub fi: Vec<FinInfo>,
 }
 // API managed by AA

@@ -17,6 +17,5 @@ async fn main() {
         })
         .filter(None, LevelFilter::Info)
         .init();
-
-    log::info!("sammati started.");
+    log::info!("FIU web app proxy started.");
 }

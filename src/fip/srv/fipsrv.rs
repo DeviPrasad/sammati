@@ -3,8 +3,7 @@ use env_logger::Builder;
 use log::LevelFilter;
 use std::io::Write;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     Builder::new()
         .format(|buf, record| {
             writeln!(
@@ -18,5 +17,5 @@ async fn main() {
         .filter(None, LevelFilter::Info)
         .init();
 
-    log::info!("sammati started.");
+    log::info!("FIP service started.");
 }

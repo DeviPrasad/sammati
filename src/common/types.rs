@@ -183,6 +183,21 @@ pub enum FIType {
     INVIT,
     REIT,
     GSTR1_3B,
+    // sammati
+    HomeLoan,
+    GoldLoan,
+    VehicleLoan,
+    LAFixedDeposit,
+    LAInsurancePolicies,
+    LAMF, // loan against mutual funds
+    LAShares,
+    LAProperty,
+    LAPF,
+    LAEPF,
+    PersonalLoan, // demand promissory notes (DPN loans), mostly NBFCs
+    CreditCardLoan,
+    EducationLoan,
+    BusinessLoan, // repayable in 36 months
     Other,
 }
 
@@ -208,7 +223,21 @@ impl ToString for FIType {
             FIType::INVIT => "INVIT",
             FIType::REIT => "REIT",
             FIType::GSTR1_3B => "GSTR1_3B",
-            _ => "OTHER",
+            FIType::HomeLoan => "HOME_LOAN",
+            FIType::GoldLoan => "GOLD_LOAN",
+            FIType::VehicleLoan => "VEHICLE_LOAN",
+            FIType::LAFixedDeposit => "LA_FIXED_DEPOSIT",
+            FIType::LAInsurancePolicies => "LA_INSURANCE_POLICIES",
+            FIType::LAMF => "LA_MUTUAL_FUNDS", // loan against mutual funds
+            FIType::LAShares => "LA_SHARES",
+            FIType::LAProperty => "LA_PROPERTY",
+            FIType::LAPF => "LA_PF",
+            FIType::LAEPF => "LA_EPF",
+            FIType::PersonalLoan => "PERSONAL_LOAN", // demand promissory notes (DPN loans), mostly NBFCs
+            FIType::CreditCardLoan => "CREDITCARD_LOAN",
+            FIType::EducationLoan => "EDUCATION_LOAN",
+            FIType::BusinessLoan => "BUSINESS_LOAN",
+            FIType::Other => "OTHER",
         })
     }
 }
@@ -220,6 +249,7 @@ pub enum FinAccType {
     Default,
     NRE,
     NRO,
+    Loan,
 }
 
 impl ToString for FinAccType {
@@ -230,6 +260,7 @@ impl ToString for FinAccType {
             FinAccType::Default => "DEFAULT",
             FinAccType::NRE => "NRE",
             FinAccType::NRO => "NRO",
+            FinAccType::Loan => "LOAN",
         })
     }
 }
