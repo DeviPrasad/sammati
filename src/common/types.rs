@@ -18,7 +18,7 @@ use std::fmt::Write as _;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::ets::Timestamp;
+use super::ets::Timestamp;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserConsentStatus {
@@ -438,11 +438,11 @@ pub struct LinkedAccEncData {
 #[derive(Clone, Debug, Serialize)]
 pub struct DHPublicKey {
     // expiration of the public key.
-    expiry: crate::ets::Timestamp,
+    expiry: Timestamp,
     // defines public parameters used to calculate session key (for data encryption and decryption).
     // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH"
     params: Option<SessionCipherParam>,
-    // the value of emphemeral public key
+    // the value of ephemeral public key
     pub val_ephemeral_pub_key: Bytes,
 }
 

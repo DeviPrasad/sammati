@@ -37,6 +37,9 @@ path = "src/fiu/wap/fiuwap.rs"
 name = "fiusrv"
 path = "src/fiu/srv/fiusrv.rs"
 
+[lib]
+name = "common"
+path = "src/common/lib.rs"
 
 # last updated on 16-august-2023, Thursday
 [dependencies]
@@ -46,9 +49,10 @@ chrono = { version = "0.*", features = ["clock", "serde"]}
 data-encoding = { version = "2" }
 #ed25519-dalek = { version = "2" }
 env_logger = { version = "0.10" }
+hyper = { version = "0", features = ["http1", "http2", "server", "tcp", "runtime", "stream"] }
 log = { version = "0.4" }
 serde = { version = "1", features = ["derive"] }
-tokio = { version = "1.32", features = ["rt-multi-thread", "macros", ] }
+tokio = { version = "1.32", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
 #url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = [ "v4"] }
 #x25519-dalek = { version = "2" }

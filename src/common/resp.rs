@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::types::TxId;
+use super::types::TxId;
 use serde::Serialize;
 
 #[derive(Clone, Debug, Serialize)]

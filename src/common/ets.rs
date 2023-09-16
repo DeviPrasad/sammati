@@ -43,7 +43,7 @@ impl Serialize for Timestamp {
 impl Timestamp {
     pub fn from_str(s: &str) -> Result<Timestamp, bool> {
         if let Ok(dt) = DateTime::<FixedOffset>::parse_from_rfc3339(s) {
-            Ok(crate::ets::Timestamp {
+            Ok(Timestamp {
                 val: s.to_owned(),
                 rep: TimestampFormat::FixedOffset(dt),
             })

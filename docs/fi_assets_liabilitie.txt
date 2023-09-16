@@ -1,0 +1,24 @@
+Assets FI
+
+Secured Loans
+	Home Loan
+	Gold Loan
+	Loan Against Property 
+	Loan Against Insurance Policies
+	Loan Against Mutual Funds and Shares
+	Loan Against PF/EPF
+	Loan Against Fixed Deposit
+	Vehicle Loan
+
+
+Unsecured Loans
+	Personal Loans
+		demand promissory notes (DPN loans) mostly in NBFCs
+	Credit Card Loans
+	Education Loans
+		this would be a good data point because repayment 
+	Payday Loan
+	Business Loans
+		repayable within 36 months
+		(note: above this is long-term loans)
+
