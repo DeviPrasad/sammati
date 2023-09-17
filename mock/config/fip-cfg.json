@@ -1,0 +1,92 @@
+
+{
+    "host": {
+        "scheme": "http",
+        "name": "fip.sammati.web3pleb.org",
+        "port": 40401,
+        "address": "fip.sammati.web3pleb.org",
+        "cert": "fip-sammati-self-signed.pem",
+        "key": "fip-sammati-key.pem"
+    },
+    "oauth2": {
+        "authz": {
+            "allow_code": false,
+            "allow_pkce": true,
+            "allow_implicit": false,
+            "allow_ro_passwd_credential": false,
+            "allow_hybrid": true,
+            "issuer": "https://oauth2.sammati.web3pleb.org:40401/authz/as"
+        },
+        "pkce_code_store": {
+            "sqlite3": {
+                "name": "pkce.db",
+                "path": "mock/pkce.db",
+                "version": "3.38.5",
+                "hash": "78d9c993d404cdfaa7fdd2973fa1052e3da9f66215cff9c5540ebe55c407d9fe",
+                "host": {
+                    "scheme": "http",
+                    "name": "pkce.sqlite3.web3pleb.org",
+                    "port": 40601,
+                    "address": "pkce.sqlite3.web3pleb.org:40601",
+                    "cert": "pkce-sqlite3-self-signed.pem",
+                    "key": "pkce-sqlite3-key.pem"
+                }
+            },
+            "mysql": {
+                "name": "",
+                "path": "",
+                "host": {
+                    "scheme": "http",
+                    "name": "cap.oauth2.mysql.web3pleb.org",
+                    "port": 41601,
+                    "address": "cap.oauth2.mysql.web3pleb.org:41601",
+                    "cert": "cap-oauth2-mysql-self-signed.pem",
+                    "key": "cap-oauth2-mysql--key.pem"
+                }
+            },
+            "pgsql": {
+                "name": "",
+                "path": "",
+                "host": {
+                    "scheme": "http",
+                    "name": "cap.oauth2.pgsql.web3pleb.org",
+                    "port": 42601,
+                    "address": "cap.oauth2.pgsql.web3pleb.org:42601",
+                    "cert": "cap-oauth2-pgsql-self-signed.pem",
+                    "key": "cap-oauth2-pgsql-key.pem"
+                }
+            }
+        },
+        "client_authentication": {
+            "value": "required",
+            "allow": ["basic", "dpop"]
+        },
+        "parameters": {
+            "resource": {
+                "value": "required",
+                "instance_count_max": 1,
+                "length_bytes_max": 128
+            },
+            "scope": {
+                "value": "required",
+                "instance_count_max": 5,
+                "length_bytes_max": 256
+            },
+            "redirect_uri": {
+                "value": "required",
+                "instance_count_max": 1,
+                "length_bytes_max": 256
+            },
+            "state": {
+                "value": "required",
+                "instance_count_max": 1,
+                "length_bytes_max": 64
+            },
+            "code_challenge_method": {
+                "value": "required",
+                "instance_count_max": 1,
+                "allow": ["S256", "plain"]
+            }
+        }
+    }
+}
