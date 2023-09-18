@@ -18,7 +18,7 @@ use std::fmt::Write as _;
 use std::str::FromStr;
 use uuid::Uuid;
 
-use super::ets::Timestamp;
+use super::ts::Timestamp;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserConsentStatus {

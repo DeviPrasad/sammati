@@ -2,9 +2,9 @@
 {
     "host": {
         "scheme": "http",
-        "name": "fip.sammati.web3pleb.org",
-        "port": 40401,
-        "address": "fip.sammati.web3pleb.org",
+        "name": "fip-wap.sammati.web3pleb.org",
+        "port": 40601,
+        "address": "fip-wap.sammati.web3pleb.org:40601",
         "cert": "fip-sammati-self-signed.pem",
         "key": "fip-sammati-key.pem"
     },

@@ -1,10 +1,11 @@
 #![allow(dead_code)]
-
 use chrono::DateTime;
 use chrono::FixedOffset;
 use chrono::NaiveDateTime;
 use chrono::SecondsFormat;
 use serde::Serialize;
+use std::fmt::Formatter;
+use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
 pub enum TimestampFormat {
@@ -73,9 +74,88 @@ pub struct TimePeriod {
     pub to: Timestamp,
 }
 
+#[inline]
+pub fn unix_timestamp() -> u64 {
+    let r: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(UNIX_EPOCH);
+    match r {
+        Ok(t) => t.as_secs(),
+        _ => 0,
+    }
+}
+
+#[inline]
+pub fn past_within_allowed_skew(
+    past: u64,
+    past_skew_sec_max: u64,
+    future_skew_sec_max: u64,
+) -> bool {
+    if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
+        // past event should NOT be way too past! there's a permitted freshness period.
+        // is (past + skew_sec_max) < now?
+        if Duration::new(past, 0)
+            .saturating_add(Duration::new(past_skew_sec_max, 0))
+            .lt(&now)
+        {
+            false
+        } else if now
+            .saturating_add(Duration::new(future_skew_sec_max, 0))
+            .lt(&Duration::new(past, 0))
+        {
+            // past shout NOT be ahead of our 'now'!
+            false
+        } else {
+            true
+        }
+    } else {
+        false
+    }
+}
+
+#[inline]
+pub fn unix_timestamp_add_seconds(seconds: u64) -> u64 {
+    let r: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(UNIX_EPOCH);
+    match r {
+        Ok(t) => t.saturating_add(Duration::new(seconds, 0)).as_secs(),
+        _ => 0,
+    }
+}
+
+#[inline]
+pub fn unix_timestamp_sub_seconds(past: u64) -> u64 {
+    let r: Result<Duration, SystemTimeError> = SystemTime::now().duration_since(UNIX_EPOCH);
+    match r {
+        Ok(t) => t.saturating_sub(Duration::new(past, 0)).as_secs(),
+        _ => 0,
+    }
+}
+
+#[inline]
+pub fn unix_timestamp_add_minutes(minutes: u64) -> u64 {
+    unix_timestamp_add_seconds(minutes * 60)
+}
+
+#[inline]
+pub fn unix_timestamp_add_hours(hrs: u64) -> u64 {
+    unix_timestamp_add_seconds(hrs * 60 * 60)
+}
+
+#[inline]
+pub fn unix_timestamp_add_days(days: u64) -> u64 {
+    unix_timestamp_add_seconds(days * 24 * 60 * 60)
+}
+
+#[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct UnixTimeStamp(i64);
+
+impl std::fmt::Display for UnixTimeStamp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        writeln!(f, "time_stamp: {:?}", self.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::ets::Timestamp;
+    use crate::ts::Timestamp;
 
     #[test]
     fn good_timestamp_naive_01() {

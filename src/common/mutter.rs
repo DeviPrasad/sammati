@@ -6,6 +6,8 @@ use std::string::FromUtf8Error;
 #[allow(dead_code)]
 pub enum Mutter {
     None = 0,
+
+    Quit = 41000,
     #[default]
     Unspecified = 41001,
     UnspecifiedError = 41002,
@@ -20,22 +22,35 @@ pub enum Mutter {
     UnsupportedConfigDiscoveryRequest = 42003,
     MissingConfigParameters = 42004,
 
-    UnspecifiedAuthorizationFlow = 4000,
-    UnknownGetRequest = 4001,
-    UnknownPostRequest = 4002,
-    UnknownPutRequest = 4003,
-    UnknownDeleteRequest = 4004,
-    UnsupportedHttpMethod = 4005,
-    BadFormUrlEncoding = 4006,
-    UnsupportedClientAuthenticationMethod = 4007,
-    ArgumentMismatch = 4008,
-    BadBase64Encoding = 4009,
-    TooManyAuthenticationParameters = 4010,
-    InvalidBasicAuthorizationHeaderValue = 4011,
-    MissingClientCredentials = 4012,
-    MissingContentTypeFormUrlEncoding = 4013,
-    MissingContentTypeJson = 4014,
-    ClientAuthenticationMethodNotBasic = 4015,
+    UnspecifiedAuthorizationFlow = 40000,
+    UnknownGetRequest = 40001,
+    UnknownPostRequest = 40002,
+    UnknownPutRequest = 40003,
+    UnknownDeleteRequest = 40004,
+    UnsupportedHttpMethod = 40005,
+    BadFormUrlEncoding = 40006,
+    UnsupportedClientAuthenticationMethod = 40007,
+    ArgumentMismatch = 40008,
+    BadBase64Encoding = 40009,
+    TooManyAuthenticationParameters = 40010,
+    InvalidBasicAuthorizationHeaderValue = 40011,
+    MissingClientCredentials = 40012,
+    MissingContentTypeFormUrlEncoding = 40013,
+    MissingContentTypeJson = 40014,
+    ClientAuthenticationMethodNotBasic = 40015,
+
+    BadSocket = 40080,
+    BadAddrString = 40081,
+    DuplicateResponseParameterName = 40082,
+    EmptyResponseParameterName = 40083,
+    EmptyAccessTokenScopeString = 40084,
+    BadScopeString = 40085,
+    UnsupportedResponseType = 40086,
+    PayloadTooLarge = 40087,
+    PostRequestPayloadTooLarge = 40088,
+    CodeStoreResponsePayloadTooLarge = 40089,
+    HttpBodyStrUtf8Bad = 40092,
+    HttpBodyReadingError = 40093,
 }
 
 impl Mutter {
@@ -43,6 +58,7 @@ impl Mutter {
         *self as u16
     }
 }
+
 impl ToString for Mutter {
     fn to_string(&self) -> String {
         match self {
