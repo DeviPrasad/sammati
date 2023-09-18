@@ -14,6 +14,38 @@ pub struct HttpReqProc {
 }
 
 impl HttpPost for HttpReqProc {
+    fn get(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
+        info!("FIP App Proxy - HttpMethod::HttpPost::proc {:#?}", req);
+        let (head, body) = req.into_parts();
+        match body.payload(0) {
+            Ok(_) => {
+                let (uri, _headers) = (
+                    head.uri.clone(),
+                    Headers::from(head.headers),
+                );
+                match uri.path() {
+                    "/Heartbeat" => {
+                        info!("FIP GET /Heartbeat");
+                        Ok(err::response(
+                            StatusCode::OK,
+                            Mutter::None,
+                            Some(format!("FIP heartbeat").as_str())))
+                    },
+                    _ => {
+                        error!("FIP GET request unsupported ({})", uri.path());
+                        Ok(err::response(
+                            StatusCode::BAD_REQUEST,
+                            Mutter::UnknownPostRequest,
+                            Some(&format!("FIP unsupported request ({})", uri.path()))))
+                    }
+                }
+            },
+            _ => Ok(err::response(
+                    StatusCode::BAD_REQUEST,
+                    Mutter::BadHttpBodyForGetRequest,
+                    Some(format!("Non-empty HTTP GET request body").as_str()))),
+        }
+    }
     fn post(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
         info!("FIP App Proxy - HttpMethod::HttpPost::proc {:#?}", req);
         let (head, body) = req.into_parts();
@@ -24,12 +56,61 @@ impl HttpPost for HttpReqProc {
                     Headers::from(head.headers),
                 );
                 match uri.path() {
-                    "/heartbeat" => {
-                        info!("FIP POST /heartbeat");
+                    "/Accounts/discover" => {
+                        info!("FIP POST /Accounts/discover");
                         Ok(err::response(
                             StatusCode::OK,
                             Mutter::None,
-                            Some(format!("heartbeat message").as_str())))
+                            Some(format!("accounts discovery").as_str())))
+                    },
+                    "/Accounts/link" => {
+                        info!("FIP POST /Accounts/link");
+                        Ok(err::response(
+                            StatusCode::OK,
+                            Mutter::None,
+                            Some(format!("accounts linking").as_str())))
+                    },
+                    "/Accounts/delink" => {
+                        info!("FIP POST /Accounts/delink");
+                        Ok(err::response(
+                            StatusCode::OK,
+                            Mutter::None,
+                            Some(format!("accounts delink").as_str())))
+                    },
+                    "/Accounts/link/verify" => {
+                        info!("FIP POST /Accounts/link/verify");
+                        Ok(err::response(
+                            StatusCode::OK,
+                            Mutter::None,
+                            Some(format!("accounts link verify").as_str())))
+                    },
+                    "/FI/request" => {
+                        info!("FIP POST /FI/request");
+                        Ok(err::response(
+                            StatusCode::OK,
+                            Mutter::None,
+                            Some(format!("FI request").as_str())))
+                    },
+                    "/FI/fetch" => {
+                        info!("FIP POST /FI/fetch");
+                        Ok(err::response(
+                            StatusCode::OK,
+                            Mutter::None,
+                            Some(format!("FI fetch").as_str())))
+                    },
+                    "/Consent/Notification" => {
+                        info!("FIP POST /Consent/Notification");
+                        Ok(err::response(
+                            StatusCode::OK,
+                            Mutter::None,
+                            Some(format!("Consent Notification").as_str())))
+                    },
+                    "/Consent" => {
+                        info!("FIP POST /Consent");
+                        Ok(err::response(
+                            StatusCode::OK,
+                            Mutter::None,
+                            Some(format!("Consent").as_str())))
                     },
                     _ => {
                         error!("FIP unsupported request {}", uri.path());
@@ -46,7 +127,6 @@ impl HttpPost for HttpReqProc {
                 Some(format!("Permitted {} bytes", Body::POST_REQUEST_PAYLOAD_SIZE_MAX).as_str()))),
         }
     }
-        //Ok(Response::builder().body(Body::empty()).unwrap())
 }
 
 // RUST_LOG=debug cargo run --bin fipwap -- --config mock/config/fip-wap-cfg.json

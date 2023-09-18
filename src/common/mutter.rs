@@ -52,6 +52,7 @@ pub enum Mutter {
     CodeStoreResponsePayloadTooLarge = 40089,
     HttpBodyStrUtf8Bad = 40092,
     HttpBodyReadingError = 40093,
+    BadHttpBodyForGetRequest = 40094,
 }
 
 impl Mutter {
