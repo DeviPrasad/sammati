@@ -1,3 +1,4 @@
+use std::fmt;
 use data_encoding::DecodeError;
 use serde::{Deserialize, Serialize};
 use std::string::FromUtf8Error;
@@ -57,21 +58,39 @@ impl Mutter {
     pub fn as_u16(&self) -> u16 {
         *self as u16
     }
-}
-
-impl ToString for Mutter {
-    fn to_string(&self) -> String {
-        match self {
-            Mutter::MissingContentTypeFormUrlEncoding => {
-                "Content-Type MUST be 'application/x-www-form-urlencoded'".to_string()
-            }
-            Mutter::MissingContentTypeJson => "Content-Type MUST be 'application/json'".to_string(),
-            Mutter::None => "Operation successful".to_string(),
-            _ => panic!("Mutter::to_string() - Unimplemented for {}", self.as_u16()),
-        }
+    pub fn to_code(&self) -> String {
+        let s = match self {
+            Mutter::Unspecified => "Unspecified",
+            Mutter::UnspecifiedError => "UnspecifiedError",
+            Mutter::MissingContentTypeFormUrlEncoding => "MissingContentTypeFormUrlEncoding",
+            Mutter::MissingContentTypeJson => "MissingContentTypeJson",
+            Mutter::None => "None",
+            Mutter::NotImplemented => "NotImplemented",
+            Mutter::UnsupportedHttpMethod => "UnsupportedHttpMethod",
+            Mutter::UnknownGetRequest => "UnknownGetRequest",
+            Mutter::UnknownPostRequest => "UnknownPostRequest",
+            Mutter::UnknownDeleteRequest => "UnknownDeleteRequest",
+            Mutter::UnknownPutRequest => "UnknownPutRequest",
+            _ => "Unspecified error"
+        };
+        s.to_string()
     }
 }
 
+impl fmt::Display for Mutter {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            Mutter::MissingContentTypeFormUrlEncoding =>
+                "Content-Type MUST be 'application/x-www-form-urlencoded'",
+            Mutter::MissingContentTypeJson => "Content-Type MUST be 'application/json'",
+            Mutter::None => "Operation successful",
+            Mutter::NotImplemented => "Not implemented",
+            Mutter::UnsupportedHttpMethod => "Unsupported Http Method",
+            _ => "Unspecified error"
+        };
+        write!(f, "{:?}", s)
+    }
+}
 impl From<DecodeError> for Mutter {
     fn from(_: DecodeError) -> Self {
         Mutter::BadBase64Encoding

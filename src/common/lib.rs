@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 
 pub mod cfg;
-mod choice;
+pub mod choice;
+pub mod err;
+pub mod hprb;
 pub mod ts;
 pub mod http_server;
 pub mod logger;

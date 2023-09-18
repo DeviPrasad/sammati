@@ -1,66 +1,86 @@
+use crate::cfg::Config;
+use crate::mutter::Mutter;
+use async_trait::async_trait;
+use hyper::server::conn::AddrStream;
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use log::{error, info, warn};
 use std::convert::Infallible;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::pin::Pin;
-use crate::cfg::Config;
-use crate::mutter::Mutter;
-use hyper::{Body, Method, Request, Response, Server};
-use hyper::server::conn::AddrStream;
-use hyper::service::{make_service_fn, service_fn};
-use log::{error, info, warn};
-use std::sync::{OnceLock};
-use async_trait::async_trait;
+use std::sync::OnceLock;
+use crate::err;
 
 pub static HTTP_PROC: OnceLock<Pin<Box<dyn HttpPost>>> = OnceLock::new();
 
 #[async_trait]
-pub trait HttpPost : Sync + Send {
-     fn delete(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-         info!("HttpMethod::HttpPost::delete (default impl) {:#?}", req);
-         Ok(Response::builder().body(Body::empty()).unwrap())
-     }
+pub trait HttpPost: Sync + Send {
+    fn delete(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
+        error!("HttpMethod::HttpPost::delete (default impl) {:#?}", req);
+        Ok(err::response(StatusCode::BAD_REQUEST,
+                         Mutter::UnsupportedHttpMethod,
+                         Some("HTTP method DELETE not supported")
+        ))
+        //Ok(Response::builder().body().unwrap())
+    }
     fn get(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        info!("HttpMethod::HttpPost::get (default impl) {:#?}", req);
-        Ok(Response::builder().body(Body::empty()).unwrap())
+        error!("HttpMethod::HttpPost::get (default impl) {:#?}", req);
+        Ok(err::response(StatusCode::BAD_REQUEST,
+                         Mutter::UnsupportedHttpMethod,
+                         Some("HTTP method GET not supported")
+        ))
     }
     fn head(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        info!("HttpMethod::HttpPost::head (default impl) {:#?}", req);
-        Ok(Response::builder().body(Body::empty()).unwrap())
+        error!("HttpMethod::HttpPost::head (default impl) {:#?}", req);
+        Ok(err::response(StatusCode::BAD_REQUEST,
+                         Mutter::UnsupportedHttpMethod,
+                         Some("HTTP method HEAD not supported")
+        ))
     }
     fn options(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        info!("HttpMethod::HttpPost::options (default impl) {:#?}", req);
-        Ok(Response::builder().body(Body::empty()).unwrap())
+        error!("HttpMethod::HttpPost::options (default impl) {:#?}", req);
+        Ok(err::response(StatusCode::BAD_REQUEST,
+                         Mutter::UnsupportedHttpMethod,
+                         Some("HTTP method OPTIONS not supported")
+        ))
     }
     fn patch(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        info!("HttpMethod::HttpPost::patch (default impl) {:#?}", req);
-        Ok(Response::builder().body(Body::empty()).unwrap())
+        error!("HttpMethod::HttpPost::patch (default impl) {:#?}", req);
+        Ok(err::response(StatusCode::BAD_REQUEST,
+                         Mutter::UnsupportedHttpMethod,
+                         Some("HTTP method PATCH not supported")
+        ))
     }
     fn post(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        info!("HttpMethod::HttpPost::post (default impl) {:#?}", req);
-        Ok(Response::builder().body(Body::empty()).unwrap())
+        error!("HttpMethod::HttpPost::post (default impl) {:#?}", req);
+        Ok(err::response(StatusCode::BAD_REQUEST,
+                         Mutter::UnsupportedHttpMethod,
+                         Some("HTTP method POST not supported")
+        ))
     }
-     fn put(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-         info!("HttpMethod::HttpPost::put (default impl) {:#?}", req);
-         Ok(Response::builder().body(Body::empty()).unwrap())
-     }
+    fn put(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
+        error!("HttpMethod::HttpPost::put (default impl) {:#?}", req);
+        Ok(err::response(StatusCode::BAD_REQUEST,
+                         Mutter::UnsupportedHttpMethod,
+                         Some("HTTP method PUT not supported")
+        ))
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct HttpEndpoint
-{
+pub struct HttpEndpoint {
     mutter: Mutter,
     host_port: String,
     sock: Option<SocketAddr>,
     // cfg: Config,
 }
 #[allow(dead_code)]
-impl HttpEndpoint
-{
+impl HttpEndpoint {
     fn new(
         err: Mutter,
         host_port: &str,
         sock: Option<SocketAddr>,
         // config: &Config,
-
     ) -> HttpEndpoint {
         HttpEndpoint {
             mutter: err,
@@ -84,15 +104,13 @@ impl HttpEndpoint
         }
         HttpEndpoint::new(err, host_addr, sock)
     }
-    async fn run(self: &HttpEndpoint)
-    {
+    async fn run(self: &HttpEndpoint) {
         let new_service = make_service_fn(|_conn: &AddrStream| async {
             Ok::<_, Infallible>(service_fn(|req| HttpEndpoint::http_req_proc(req)))
         });
         info!("HttpServer trying to bind {}...", self.sock.unwrap());
         let server =
-            Server::try_bind(&self.sock.unwrap())
-                .map(|builder| builder.serve(new_service));
+            Server::try_bind(&self.sock.unwrap()).map(|builder| builder.serve(new_service));
         if server.is_err() {
             error!("HttpServer Server failed to bind to the interface.")
         } else {
@@ -110,10 +128,7 @@ impl HttpEndpoint
                     hs.sock.unwrap()
                 );
                 hs.run().await;
-                info!(
-                    "Stopped HttpServer Endpoint <{}>",
-                    hs.sock.unwrap()
-                )
+                info!("Stopped HttpServer Endpoint <{}>", hs.sock.unwrap())
             }
             _ => {
                 error!(
@@ -135,13 +150,14 @@ impl HttpEndpoint
                 &Method::PUT => hp.put(req),
                 &Method::PATCH => hp.patch(req),
                 &Method::HEAD => hp.head(req),
-                _ => Ok(Response::builder().body(Body::empty()).unwrap())
+                _ => Ok(Response::builder().body(Body::empty()).unwrap()),
             }
-
         } else {
-            error!("Uninitialized http endpoint {:#?}", req.headers().get("HOST").unwrap());
+            error!(
+                "Uninitialized http endpoint {:#?}",
+                req.headers().get("HOST").unwrap()
+            );
             Ok(Response::builder().body(Body::empty()).unwrap())
         }
     }
 }
-
