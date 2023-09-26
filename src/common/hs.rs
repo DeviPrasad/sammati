@@ -354,8 +354,7 @@ where
 {
     let rb = Response::builder()
         .header("Content-Type", "application/json")
-        .header("Cache-Control", "no-store")
-        .header("Pragma", "no-cache");
+        .header("Cache-Control", "no-store no-cache");
     if let Ok(s) = serde_json::to_string::<T>(&t) {
         Ok(rb.status(StatusCode::OK).body(Body::from(s)).expect("ok"))
     } else {
@@ -375,8 +374,7 @@ where
 {
     let rb = Response::builder()
         .header("Content-Type", "application/json")
-        .header("Cache-Control", "no-store")
-        .header("Pragma", "no-cache");
+        .header("Cache-Control", "no-store no-cache");
     if let Ok(s) = serde_json::to_string::<T>(&t) {
         Ok(rb.status(StatusCode::OK).body(Body::from(s)).expect("ok"))
     } else {

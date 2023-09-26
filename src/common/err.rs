@@ -1,5 +1,5 @@
-use hyper::{Body, Response, StatusCode};
 use crate::mutter::Mutter;
+use hyper::{Body, Response, StatusCode};
 
 #[derive(Clone, Debug)]
 pub struct ErrorResponse {
@@ -13,9 +13,7 @@ pub struct ErrorResponse {
 pub fn response(status: StatusCode, mutter: Mutter, st: Option<&str>) -> Response<Body> {
     Response::builder()
         .header("Content-Type", "application/json")
-        .header("Cache-Control", "no-store")
-        .header("Pragma", "no-cache")
-        .header("X-Custom-FIP-ErrorCode", mutter.as_u16())
+        .header("Cache-Control", "no-store no-cache")
         .status(status)
         .body(Body::from(
             ErrorResponse::from_status_mutter(status, &mutter, st.map(|s| s.to_owned()))
@@ -61,7 +59,7 @@ impl ErrorResponse {
 
     pub fn custom_error_desc(e: &Mutter) -> &str {
         match e {
-            _ => "Bad request"
+            _ => "Bad request",
         }
     }
 

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use super::ts::Timestamp;
 ///
 /// changelogs from 1.2.0
 /// https://specifications.rebit.org.in/api_schema/account_aggregator/AA_ChangeLog_2_0_0.txt
@@ -18,7 +19,6 @@ use std::convert::TryInto;
 use std::fmt::{Debug, Write as _};
 use std::str::FromStr;
 use uuid::Uuid;
-use super::ts::Timestamp;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServiceHealthStatus {
@@ -67,6 +67,8 @@ pub enum ErrorCode {
     ExpiredKeyMaterial,         // RespCode::NotFound
     NoDataFound,                // RespCode::NotFound
     DataGone,                   // RespCode::Gone
+    NonEmptyBodyForGetRequest,
+    PayloadTooLarge,
 }
 
 impl ToString for ErrorCode {
@@ -104,6 +106,8 @@ impl ToString for ErrorCode {
             ErrorCode::ExpiredKeyMaterial => "ExpiredKeyMaterial",
             ErrorCode::NoDataFound => "NoDataFound",
             ErrorCode::DataGone => "DataGone",
+            ErrorCode::NonEmptyBodyForGetRequest => "NonEmptyBodyForGetRequest",
+            ErrorCode::PayloadTooLarge => "PayloadTooLarge",
         })
     }
 }
@@ -701,9 +705,8 @@ pub struct SignedConsentDetail {
 #[derive(Debug, Clone, Serialize)]
 pub struct ConsentUse {}
 
-
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct Empty{}
+pub struct Empty {}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ErrResp<T> {
@@ -725,11 +728,16 @@ pub struct ErrResp<T> {
 }
 
 impl<T> ErrResp<T>
-    where T : Default {
-    pub fn v2(tx_id: &TxId, ts: &Timestamp, ec: ErrorCode, em: &str, cx: Option<T>) -> Self {
+where
+    T: Default,
+{
+    pub fn v2(tx_id: Option<TxId>, ts: &Timestamp, ec: ErrorCode, em: &str, cx: Option<T>) -> Self {
         ErrResp {
             ver: "2.0.0".to_string(),
-            tx_id: tx_id.to_string(),
+            tx_id: match tx_id {
+                Some(t) => t.to_string(),
+                None => "".to_string(),
+            },
             ts: ts.to_string(),
             err_code: ec.to_string(),
             err_msg: em.to_string(),

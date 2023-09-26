@@ -3,11 +3,7 @@ use data_encoding::DecodeError;
 use env_logger::Builder;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt,
-    io::Write,
-    string::FromUtf8Error
-};
+use std::{fmt, io::Write, string::FromUtf8Error};
 
 pub fn init_log() {
     Builder::new()
@@ -61,6 +57,7 @@ pub enum Mutter {
     MissingContentTypeJson = 40014,
     ClientAuthenticationMethodNotBasic = 40015,
     InternalServerError = 40022,
+    InvalidRequest = 40023,
 
     BadSocket = 40080,
     BadAddrString = 40081,
@@ -91,10 +88,11 @@ impl Mutter {
             Mutter::NotImplemented => "NotImplemented",
             Mutter::UnsupportedHttpMethod => "UnsupportedHttpMethod",
             Mutter::UnknownGetRequest => "UnknownGetRequest",
+            Mutter::InvalidRequest => "InvalidRequest",
             Mutter::UnknownPostRequest => "UnknownPostRequest",
             Mutter::UnknownDeleteRequest => "UnknownDeleteRequest",
             Mutter::UnknownPutRequest => "UnknownPutRequest",
-            _ => "Unspecified error"
+            _ => "Unspecified error",
         };
         s.to_string()
     }
@@ -103,13 +101,14 @@ impl Mutter {
 impl fmt::Display for Mutter {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
-            Mutter::MissingContentTypeFormUrlEncoding =>
-                "Content-Type MUST be 'application/x-www-form-urlencoded'",
+            Mutter::MissingContentTypeFormUrlEncoding => {
+                "Content-Type MUST be 'application/x-www-form-urlencoded'"
+            }
             Mutter::MissingContentTypeJson => "Content-Type MUST be 'application/json'",
             Mutter::None => "Operation successful",
             Mutter::NotImplemented => "Not implemented",
             Mutter::UnsupportedHttpMethod => "Unsupported Http Method",
-            _ => "Unspecified error"
+            _ => "Unspecified error",
         };
         write!(f, "{:?}", s)
     }

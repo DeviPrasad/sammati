@@ -55,6 +55,7 @@ hyper = { version = "0", features = ["http1", "http2", "server", "tcp", "runtime
 log = { version = "0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
+smol_str = { version = "0", featues = ["serde", "arbitrary", "default_features"]}
 tokio = { version = "1", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
 #url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = [ "v4"] }

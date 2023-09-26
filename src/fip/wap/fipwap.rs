@@ -2,18 +2,17 @@
 
 use common::{
     cfg::Config,
-    err, fip,
+    fip,
     hs::{self, BodyTrait, Headers, HttpEndpoint, HttpMethod, InfallibleResult, HTTP_PROC},
     mutter::{self, Mutter},
     ts::Timestamp,
-    types::ServiceHealthStatus,
+    types::{ErrResp, ErrorCode, ServiceHealthStatus},
     CommandlineArgs,
 };
-use hyper::{Body, Request, StatusCode};
+use hyper::{Body, Request};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
-
 #[derive(Debug)]
 pub struct HttpReqProc {}
 
@@ -47,29 +46,12 @@ impl HttpMethod for HttpReqProc {
             Ok(_) => {
                 let (uri, _headers) = (head.uri.clone(), Headers::from(head.headers));
                 match uri.path() {
-                    "/Heartbeat" => {
-                        info!("FIP GET /Heartbeat");
-                        hs::answer(fip::HealthOkResp::<FipNode>::v2(
-                            &Timestamp::now(),
-                            ServiceHealthStatus::UP,
-                            Some(FipNode::default()),
-                        ))
-                    }
-                    _ => {
-                        error!("FIP GET request unsupported ({})", uri.path());
-                        Ok(err::response(
-                            StatusCode::BAD_REQUEST,
-                            Mutter::UnknownPostRequest,
-                            Some(&format!("FIP unsupported request ({})", uri.path())),
-                        ))
-                    }
+                    "/Heartbeat" => answer_health_ok(),
+                    p => flag_unrecognized(p),
                 }
             }
-            _ => Ok(err::response(
-                StatusCode::BAD_REQUEST,
-                Mutter::BadHttpBodyForGetRequest,
-                Some(format!("Non-empty HTTP GET request body").as_str()),
-            )),
+            // non-empty body in HTTP GET is considered an error.
+            _ => flag_invalid_body_get_request(),
         }
     }
 
@@ -82,83 +64,49 @@ impl HttpMethod for HttpReqProc {
                 match uri.path() {
                     "/Accounts/discover" => {
                         info!("FIP POST /Accounts/discover");
-                        Ok(err::response(
-                            StatusCode::OK,
-                            Mutter::None,
-                            Some(format!("accounts discovery").as_str()),
-                        ))
+                        flag_unimplemented("/Accounts/discover")
                     }
                     "/Accounts/link" => {
                         info!("FIP POST /Accounts/link");
-                        Ok(err::response(
-                            StatusCode::OK,
-                            Mutter::None,
-                            Some(format!("accounts linking").as_str()),
-                        ))
+                        flag_unimplemented("/Accounts/link")
                     }
                     "/Accounts/delink" => {
                         info!("FIP POST /Accounts/delink");
-                        Ok(err::response(
-                            StatusCode::OK,
-                            Mutter::None,
-                            Some(format!("accounts delink").as_str()),
-                        ))
+                        flag_unimplemented("/Accounts/delink")
                     }
                     "/Accounts/link/verify" => {
                         info!("FIP POST /Accounts/link/verify");
-                        Ok(err::response(
-                            StatusCode::OK,
-                            Mutter::None,
-                            Some(format!("accounts link verify").as_str()),
-                        ))
+                        flag_unimplemented("/Accounts/link/verify")
                     }
                     "/FI/request" => {
                         info!("FIP POST /FI/request");
-                        Ok(err::response(
-                            StatusCode::OK,
-                            Mutter::None,
-                            Some(format!("FI request").as_str()),
-                        ))
+                        flag_unimplemented("/FI/request")
                     }
                     "/FI/fetch" => {
                         info!("FIP POST /FI/fetch");
-                        Ok(err::response(
-                            StatusCode::OK,
-                            Mutter::None,
-                            Some(format!("FI fetch").as_str()),
-                        ))
+                        flag_unimplemented("/FI/fetch")
                     }
                     "/Consent/Notification" => {
                         info!("FIP POST /Consent/Notification");
-                        Ok(err::response(
-                            StatusCode::OK,
-                            Mutter::None,
-                            Some(format!("Consent Notification").as_str()),
-                        ))
+                        flag_unimplemented("/Consent/Notification")
                     }
                     "/Consent" => {
                         info!("FIP POST /Consent");
-                        Ok(err::response(
-                            StatusCode::OK,
-                            Mutter::None,
-                            Some(format!("Consent").as_str()),
-                        ))
+                        flag_unimplemented("/Consent")
                     }
                     _ => {
                         error!("FIP unsupported request {}", uri.path());
-                        Ok(err::response(
-                            StatusCode::BAD_REQUEST,
-                            Mutter::UnknownPostRequest,
-                            Some(&format!("({})", uri.path())),
-                        ))
+                        flag_unrecognized(uri.path())
                     }
                 }
             }
-            _ => Ok(err::response(
-                StatusCode::PAYLOAD_TOO_LARGE,
-                Mutter::PostRequestPayloadTooLarge,
-                Some(format!("Permitted {} bytes", Body::POST_REQUEST_PAYLOAD_SIZE_MAX).as_str()),
-            )),
+            _ => flag_bad_request(
+                ErrorCode::PayloadTooLarge,
+                &format!(
+                    "Max permitted size of the payload is {} bytes",
+                    Body::POST_REQUEST_PAYLOAD_SIZE_MAX
+                ),
+            ),
         }
     }
 }
@@ -192,6 +140,54 @@ async fn main() {
             std::process::exit(2);
         }
     }
+}
+
+fn answer_health_ok() -> InfallibleResult {
+    hs::answer(fip::HealthOkResp::<FipNode>::v2(
+        &Timestamp::now(),
+        ServiceHealthStatus::UP,
+        Some(FipNode::default()),
+    ))
+}
+
+fn flag_invalid_body_get_request() -> InfallibleResult {
+    hs::flag(ErrResp::<FipNode>::v2(
+        None,
+        &Timestamp::now(),
+        ErrorCode::NonEmptyBodyForGetRequest,
+        "GET request body should be empty",
+        Some(FipNode::default()),
+    ))
+}
+
+fn flag_unrecognized(p: &str) -> InfallibleResult {
+    hs::flag(ErrResp::<FipNode>::v2(
+        None,
+        &Timestamp::now(),
+        ErrorCode::InvalidRequest,
+        &("Invalid request '".to_string() + p + "'"),
+        Some(FipNode::default()),
+    ))
+}
+
+fn flag_unimplemented(p: &str) -> InfallibleResult {
+    hs::flag(ErrResp::<FipNode>::v2(
+        None,
+        &Timestamp::now(),
+        ErrorCode::NotImplemented,
+        &("Not implemented '".to_string() + p + "'"),
+        Some(FipNode::default()),
+    ))
+}
+
+fn flag_bad_request(ec: ErrorCode, em: &str) -> InfallibleResult {
+    hs::flag(ErrResp::<FipNode>::v2(
+        None,
+        &Timestamp::now(),
+        ec,
+        em,
+        Some(FipNode::default()),
+    ))
 }
 
 // quick test
