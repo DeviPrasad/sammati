@@ -64,4 +64,27 @@ impl ErrorResponse {
             _ => "Bad request"
         }
     }
+
+    pub fn none(s: &str) -> Self {
+        Self {
+            http_status_code: StatusCode::OK,
+            custom_error_code: Mutter::None,
+            error_code: "no_error".to_string(),
+            error: "none".to_string(),
+            desc: s.to_string(),
+        }
+    }
+    pub fn internal_server_error(s: &str) -> Self {
+        Self {
+            http_status_code: StatusCode::INTERNAL_SERVER_ERROR,
+            custom_error_code: Mutter::InternalServerError,
+            error_code: "internal_server_error".to_string(),
+            error: s.to_string(),
+            desc: s.to_string(),
+        }
+    }
+
+    pub fn to_hyper_body(&self) -> Body {
+        Body::from(self.to_json().to_string())
+    }
 }

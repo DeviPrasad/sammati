@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 ///
 /// changelogs from 1.2.0
 /// https://specifications.rebit.org.in/api_schema/account_aggregator/AA_ChangeLog_2_0_0.txt
@@ -14,11 +15,98 @@ use bytes::Bytes;
 use data_encoding::BASE64_NOPAD;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
-use std::fmt::Write as _;
+use std::fmt::{Debug, Write as _};
 use std::str::FromStr;
 use uuid::Uuid;
-
 use super::ts::Timestamp;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ServiceHealthStatus {
+    UP,
+    DOWN,
+}
+impl ToString for ServiceHealthStatus {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            ServiceHealthStatus::UP => "UP",
+            ServiceHealthStatus::DOWN => "DOWN",
+        })
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ErrorCode {
+    InvalidRequest,             // RespCode::BadRequest
+    InvalidURI,                 // RespCode::BadRequest
+    InvalidSecurity,            // RespCode::BadRequest
+    SignatureDoesNotMatch,      // RespCode::BadRequest
+    InvalidLinkRefNumber,       // RespCode::BadRequest
+    NoSuchVersion,              // RespCode::NotFound
+    IdempotencyError,           // RespCode::Conflict
+    ServiceUnavailable,         // RespCode::ServiceUnavailable
+    PreconditionFailed,         // RespCode::PreconditionFailed
+    InternalError,              // RespCode::InternalServerError
+    NotImplemented,             // RespCode::NotImplemented
+    Unauthorized,               // RespCode::UnauthorizedAccess
+    InvalidNotifier,            // RespCode::BadRequest
+    InvalidConsentId,           // RespCode::BadRequest
+    InvalidConsentStatus,       // RespCode::BadRequest
+    InvalidSessionId,           // RespCode::BadRequest
+    InvalidSessionStatus,       // RespCode::BadRequest
+    InvalidFIStatus,            // RespCode::BadRequest
+    AccountNotFound,            // RespCode::BadRequest
+    InvalidLinkToken,           // RespCode::BadRequest
+    LinkTokenExpired,           // RespCode::BadRequest
+    InvalidKey,                 // RespCode::BadRequest
+    InvalidDateRange,           // RespCode::BadRequest
+    InvalidConsentDetail,       // RespCode::BadRequest
+    InvalidConsentUse,          // RespCode::BadRequest
+    ConsentExpired,             // RespCode::Forbidden
+    ConsentRevoked,             // RespCode::Forbidden
+    ConsentPaused,              // RespCode::Forbidden
+    DataFetchRequestInProgress, // RespCode::Forbidden
+    ExpiredKeyMaterial,         // RespCode::NotFound
+    NoDataFound,                // RespCode::NotFound
+    DataGone,                   // RespCode::Gone
+}
+
+impl ToString for ErrorCode {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            ErrorCode::InvalidRequest => "InvalidRequest",
+            ErrorCode::InvalidURI => "InvalidURI",
+            ErrorCode::InvalidSecurity => "InvalidSecurity",
+            ErrorCode::SignatureDoesNotMatch => "SignatureDoesNotMatch",
+            ErrorCode::InvalidLinkRefNumber => "InvalidLinkRefNumber",
+            ErrorCode::NoSuchVersion => "NoSuchVersion",
+            ErrorCode::IdempotencyError => "IdempotencyError",
+            ErrorCode::ServiceUnavailable => "ServiceUnavailable",
+            ErrorCode::PreconditionFailed => "PreconditionFailed",
+            ErrorCode::InternalError => "InternalError",
+            ErrorCode::NotImplemented => "DOWN",
+            ErrorCode::Unauthorized => "Unauthorized",
+            ErrorCode::InvalidNotifier => "InvalidNotifier",
+            ErrorCode::InvalidConsentId => "InvalidConsentId",
+            ErrorCode::InvalidConsentStatus => "InvalidConsentStatus",
+            ErrorCode::InvalidSessionId => "InvalidSessionId",
+            ErrorCode::InvalidSessionStatus => "InvalidSessionStatus",
+            ErrorCode::InvalidFIStatus => "InvalidFIStatus",
+            ErrorCode::AccountNotFound => "AccountNotFound",
+            ErrorCode::InvalidLinkToken => "InvalidLinkToken",
+            ErrorCode::LinkTokenExpired => "LinkTokenExpired",
+            ErrorCode::InvalidKey => "InvalidKey",
+            ErrorCode::InvalidDateRange => "InvalidDateRange",
+            ErrorCode::InvalidConsentDetail => "InvalidConsentDetail",
+            ErrorCode::InvalidConsentUse => "InvalidConsentUse",
+            ErrorCode::ConsentExpired => "ConsentExpired",
+            ErrorCode::ConsentRevoked => "ConsentRevoked",
+            ErrorCode::ConsentPaused => "ConsentPaused",
+            ErrorCode::DataFetchRequestInProgress => "DataFetchRequestInProgress",
+            ErrorCode::ExpiredKeyMaterial => "ExpiredKeyMaterial",
+            ErrorCode::NoDataFound => "NoDataFound",
+            ErrorCode::DataGone => "DataGone",
+        })
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserConsentStatus {
@@ -391,7 +479,7 @@ pub struct FIPId {
 
 // discovered account information.
 // also used in FIP::AccLinkRequest accounts to be linked.
-// best viewed as a virualized account descriptor representing a real/concrete FIP account.
+// best viewed as a virtualized account descriptor representing a real/concrete FIP account.
 #[derive(Clone, Debug, Serialize)]
 pub struct FIPAccDesc {
     /// type of financial information
@@ -482,7 +570,7 @@ pub struct FinInfo {
 #[derive(Debug, Clone)]
 pub enum AccOwnerIdType {
     Mobile,
-    Aadhar,
+    Aadhaar,
     Email,
     PAN,
     DOB,
@@ -490,6 +578,22 @@ pub enum AccOwnerIdType {
     CRN,
     PPAN,
     Others,
+}
+
+impl ToString for AccOwnerIdType {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            AccOwnerIdType::Mobile => "MOBILE",
+            AccOwnerIdType::Aadhaar => "AADHAR",
+            AccOwnerIdType::Email => "EMAIL",
+            AccOwnerIdType::PAN => "PAN",
+            AccOwnerIdType::DOB => "DOB",
+            AccOwnerIdType::AccNum => "ACCNUM",
+            AccOwnerIdType::CRN => "CRN",
+            AccOwnerIdType::PPAN => "PPAN",
+            AccOwnerIdType::Others => "OTHERS",
+        })
+    }
 }
 
 /// Set of Identifiers required for discovering the accounts of a customer at the FIP.
@@ -572,7 +676,7 @@ pub struct Notifier {
 #[derive(Debug, Clone)]
 pub struct FinAccount {
     /// reference number assigned by FIP as part of the account linking process
-    pub link_refnum: String,
+    pub link_ref_num: String,
     /// fetch status of the Financial Information.
     pub fi_status: AccountFIStatus,
     pub desc: String,
@@ -596,6 +700,43 @@ pub struct SignedConsentDetail {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ConsentUse {}
+
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Empty{}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ErrResp<T> {
+    #[serde(rename = "version")]
+    ver: String,
+    #[serde(rename = "txnid")]
+    tx_id: String,
+    #[serde(rename = "timestamp")]
+    ts: String,
+    /// error code pertaining to the invalid request
+    #[serde(rename = "errorCode")]
+    err_code: String,
+    /// error message with additional details.
+    /// NOTE: Ensure no sensitive information is included in the error message.
+    #[serde(rename = "errorMsg")]
+    err_msg: String,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    custom: Option<T>,
+}
+
+impl<T> ErrResp<T>
+    where T : Default {
+    pub fn v2(tx_id: &TxId, ts: &Timestamp, ec: ErrorCode, em: &str, cx: Option<T>) -> Self {
+        ErrResp {
+            ver: "2.0.0".to_string(),
+            tx_id: tx_id.to_string(),
+            ts: ts.to_string(),
+            err_code: ec.to_string(),
+            err_msg: em.to_string(),
+            custom: cx,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

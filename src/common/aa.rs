@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ets::Timestamp;
+use crate::ts::Timestamp;
 use crate::types::{Base64EncUuid, FIPAccLinkRef, FIPId, FinInfo, TxId};
 use serde::Serialize;
 

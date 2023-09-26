@@ -1,7 +1,9 @@
-use common::logger;
+#![allow(dead_code)]
+
+use common::mutter;
 
 #[tokio::main]
 async fn main() {
-    logger::init();
+    mutter::init_log();
     log::info!("FIP service started.");
 }

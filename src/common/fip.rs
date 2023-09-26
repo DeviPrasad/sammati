@@ -1,15 +1,16 @@
 #![allow(dead_code)]
-use crate::ets::{TimePeriod, Timestamp};
+
+use crate::ts::{TimePeriod, Timestamp};
 /// https://api.rebit.org.in/viewSpec/FIP_2_0_0.yaml
 use crate::types::{
     AccHolderConsentProof, Base64EncUuid, ConsentId, FIPAccDesc, FIPAccHolder,
     FIPAccHolderAccDescriptors, FIPAccHolderConsentStatus, FIPAccHolderLinkedAccRef,
     FIPAccHolderLinkedAccStatus, FIPAccLinkRef, FIPAccLinkReqRefNum, FIPAccLinkToken,
     FIPAccLinkingAuthType, FIPId, FIPVerifiedLinkedAccStatus, FIType, FinInfo, KeyMaterial,
-    Notifier, TxId, UserConsentStatus,
+    Notifier, ServiceHealthStatus, TxId, UserConsentStatus,
 };
 use bytes::Bytes;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // API managed by FIP
 trait AccDiscoveryFlow {
@@ -285,6 +286,38 @@ struct ConsentArtefactReq {
     pub consent_artefact_created_at: Timestamp,
     pub signed_consent_jws: Bytes,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HealthOkResp<T> {
+    #[serde(rename = "version")]
+    pub ver: String,
+    #[serde(rename = "txnid", skip_serializing_if = "Option::is_none")]
+    pub tx_id: Option<String>,
+    #[serde(rename="timestamp")]
+    pub ts: String,
+    #[serde(rename = "Status")]
+    pub status: String,
+    #[serde(rename = "response")]
+    pub resp: String,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub custom: Option<T>,
+}
+
+impl<T> HealthOkResp<T>
+    where T : Default {
+    pub fn v2(ts: &Timestamp, status: ServiceHealthStatus, cx: Option<T>) -> Self {
+        HealthOkResp {
+            ver: "2.0.0".to_string(),
+            tx_id: None,
+            ts: ts.to_string(),
+            status: status.to_string(),
+            resp: "OK".to_string(),
+            custom: cx,
+        }
+    }
+}
+
+
 
 /* example ConsentArtefactReq
 {

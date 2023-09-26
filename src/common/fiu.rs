@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ets::Timestamp;
+use crate::ts::Timestamp;
 /// https://api.rebit.org.in/viewSpec/FIU_2_0_0.yaml
 use crate::types::FISessionStatus;
 use crate::types::FinAccount;
@@ -65,7 +65,7 @@ trait ConsentNotification {
 }
 #[cfg(test)]
 mod tests {
-    use crate::ets::Timestamp;
+    use crate::ts::Timestamp;
     use crate::fiu::ConsentStatusNotification;
     use crate::types::Notifier;
     use crate::types::{ConsentHandle, ConsentId, TxId, UserConsent, UserConsentStatus};

@@ -1,7 +1,7 @@
-use common::logger;
+use common::mutter;
 
 #[tokio::main]
 async fn main() {
-    logger::init();
+    mutter::init_log();
     log::info!("Sammati started.");
 }

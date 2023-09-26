@@ -1,7 +1,28 @@
-use std::fmt;
+use chrono::Local;
 use data_encoding::DecodeError;
+use env_logger::Builder;
+use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::string::FromUtf8Error;
+use std::{
+    fmt,
+    io::Write,
+    string::FromUtf8Error
+};
+
+pub fn init_log() {
+    Builder::new()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} [{}] - {}",
+                Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                record.level(),
+                record.args()
+            )
+        })
+        .filter(None, LevelFilter::Info)
+        .init();
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[allow(dead_code)]
@@ -39,6 +60,7 @@ pub enum Mutter {
     MissingContentTypeFormUrlEncoding = 40013,
     MissingContentTypeJson = 40014,
     ClientAuthenticationMethodNotBasic = 40015,
+    InternalServerError = 40022,
 
     BadSocket = 40080,
     BadAddrString = 40081,

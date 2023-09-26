@@ -1,4 +1,3 @@
-
 {
     "host": {
         "scheme": "http",
@@ -6,7 +5,9 @@
         "port": 40601,
         "address": "fip-wap.sammati.web3pleb.org:40601",
         "cert": "fip-sammati-self-signed.pem",
-        "key": "fip-sammati-key.pem"
+        "key": "fip-sammati-key.pem",
+        "url": "https://fip.sammati.in/",
+        "cid": 100001
     },
     "oauth2": {
         "authz": {
@@ -59,7 +60,10 @@
         },
         "client_authentication": {
             "value": "required",
-            "allow": ["basic", "dpop"]
+            "allow": [
+                "basic",
+                "dpop"
+            ]
         },
         "parameters": {
             "resource": {
@@ -85,7 +89,10 @@
             "code_challenge_method": {
                 "value": "required",
                 "instance_count_max": 1,
-                "allow": ["S256", "plain"]
+                "allow": [
+                    "S256",
+                    "plain"
+                ]
             }
         }
     }

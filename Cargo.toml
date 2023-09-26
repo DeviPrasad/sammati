@@ -45,20 +45,21 @@ path = "src/common/lib.rs"
 [dependencies]
 bytes = { version = "1", features = ["serde"] }
 clap = { version = "4", features = ["default", "derive"] }
-chrono = { version = "0.*", features = ["clock", "serde"]}
+chrono = { version = "0", features = ["clock", "serde"]}
+chrono-tz = { version = "0" }
 ### chrono feature: "std - interoperation with standard library types and traits."
 data-encoding = { version = "2" }
 #ed25519-dalek = { version = "2" }
-env_logger = { version = "0.10" }
+env_logger = { version = "0" }
 hyper = { version = "0", features = ["http1", "http2", "server", "tcp", "runtime", "stream"] }
-log = { version = "0.4" }
+log = { version = "0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
-tokio = { version = "1.32", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
 #url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = [ "v4"] }
 async-trait = { version = "0.1" }
-futures = "0.3.28"
+futures = "0"
 #x25519-dalek = { version = "2" }
 #zeroize = { version = "1" }
 
