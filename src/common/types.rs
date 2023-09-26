@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::ts::Timestamp;
+use crate::ts::Timestamp;
 ///
 /// changelogs from 1.2.0
 /// https://specifications.rebit.org.in/api_schema/account_aggregator/AA_ChangeLog_2_0_0.txt

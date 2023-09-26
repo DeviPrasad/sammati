@@ -1,19 +1,17 @@
 #![allow(dead_code)]
 
 use chrono::{DateTime, FixedOffset, NaiveDateTime, SecondsFormat, TimeZone, Utc};
-use serde::{Deserialize, Serialize, ser::SerializeStruct};
-use std::{fmt::Formatter, time::{
-    Duration,
-    SystemTime,
-    SystemTimeError,
-    UNIX_EPOCH
-}};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
+use std::{
+    fmt::Formatter,
+    time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
+};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Timestamp {
-    pub rep: String
+    pub rep: String,
 }
 
 impl ToString for Timestamp {
@@ -43,11 +41,17 @@ impl Serialize for Timestamp {
 impl Timestamp {
     pub fn from_str(s: &str) -> Result<Timestamp, bool> {
         if let Ok(dt) = DateTime::<FixedOffset>::parse_from_rfc3339(s) {
-            Ok(Timestamp { rep: dt.to_string()})
+            Ok(Timestamp {
+                rep: dt.to_string(),
+            })
         } else if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
-            Ok(Timestamp{ rep: dt.to_string()})
+            Ok(Timestamp {
+                rep: dt.to_string(),
+            })
         } else if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
-            Ok(Timestamp{ rep: dt.to_string()})
+            Ok(Timestamp {
+                rep: dt.to_string(),
+            })
         } else {
             Err(false)
         }
@@ -58,8 +62,11 @@ impl Timestamp {
     }
     pub fn now() -> Self {
         let _l: NaiveDateTime = Utc::now().naive_local();
-        let _tn: DateTime<chrono_tz::Tz> = chrono_tz::Asia::Kolkata.from_local_datetime(&_l).unwrap();
-        Self {rep: _tn.fixed_offset().to_string() }
+        let _tn: DateTime<chrono_tz::Tz> =
+            chrono_tz::Asia::Kolkata.from_local_datetime(&_l).unwrap();
+        Self {
+            rep: _tn.fixed_offset().to_string(),
+        }
     }
 }
 

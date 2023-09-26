@@ -16,6 +16,9 @@ use std::sync::OnceLock;
 #[derive(Debug)]
 pub struct HttpReqProc {}
 
+// endpoint config for shared access
+pub static EP_CFG: OnceLock<Box<Config>> = OnceLock::<Box<Config>>::new();
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct FipNode {
     pid: String,
@@ -27,7 +30,7 @@ impl Default for FipNode {
     fn default() -> Self {
         let (url, cid) = match EP_CFG.get() {
             Some(cfg) => (cfg.host.url.to_owned(), cfg.host.cid),
-            _ => ("https://fip-wap.sammati.in/".to_string(), 0),
+            _ => ("https://fip.sammati.in/".to_string(), 0),
         };
         FipNode {
             pid: format!("pid_{:?}", std::process::id()),
@@ -100,7 +103,7 @@ impl HttpMethod for HttpReqProc {
                     }
                 }
             }
-            _ => flag_bad_request(
+            _ => flag_too_large(
                 ErrorCode::PayloadTooLarge,
                 &format!(
                     "Max permitted size of the payload is {} bytes",
@@ -110,9 +113,6 @@ impl HttpMethod for HttpReqProc {
         }
     }
 }
-
-// endpoint config for shared access
-pub static EP_CFG: OnceLock<Box<Config>> = OnceLock::<Box<Config>>::new();
 
 // run as
 // RUST_LOG=debug cargo run --bin fipwap -- --config mock/config/fip-wap-cfg.json
@@ -150,44 +150,63 @@ fn answer_health_ok() -> InfallibleResult {
     ))
 }
 
+fn flag_service_unavailable(p: &str) -> InfallibleResult {
+    hs::flag(
+        hyper::StatusCode::SERVICE_UNAVAILABLE,
+        ErrResp::<FipNode>::v2(
+            None,
+            &Timestamp::now(),
+            ErrorCode::ServiceUnavailable,
+            &("Requested service is unavailable (".to_string() + p + ")"),
+            Some(FipNode::default()),
+        ),
+    )
+}
+
 fn flag_invalid_body_get_request() -> InfallibleResult {
-    hs::flag(ErrResp::<FipNode>::v2(
-        None,
-        &Timestamp::now(),
-        ErrorCode::NonEmptyBodyForGetRequest,
-        "GET request body should be empty",
-        Some(FipNode::default()),
-    ))
+    hs::flag(
+        hyper::StatusCode::FORBIDDEN,
+        ErrResp::<FipNode>::v2(
+            None,
+            &Timestamp::now(),
+            ErrorCode::NonEmptyBodyForGetRequest,
+            "GET request body should be empty",
+            Some(FipNode::default()),
+        ),
+    )
 }
 
 fn flag_unrecognized(p: &str) -> InfallibleResult {
-    hs::flag(ErrResp::<FipNode>::v2(
-        None,
-        &Timestamp::now(),
-        ErrorCode::InvalidRequest,
-        &("Invalid request '".to_string() + p + "'"),
-        Some(FipNode::default()),
-    ))
+    hs::flag(
+        hyper::StatusCode::NOT_FOUND,
+        ErrResp::<FipNode>::v2(
+            None,
+            &Timestamp::now(),
+            ErrorCode::InvalidRequest,
+            &("Invalid request (".to_string() + p + ")"),
+            Some(FipNode::default()),
+        ),
+    )
 }
 
 fn flag_unimplemented(p: &str) -> InfallibleResult {
-    hs::flag(ErrResp::<FipNode>::v2(
-        None,
-        &Timestamp::now(),
-        ErrorCode::NotImplemented,
-        &("Not implemented '".to_string() + p + "'"),
-        Some(FipNode::default()),
-    ))
+    hs::flag(
+        hyper::StatusCode::NOT_IMPLEMENTED,
+        ErrResp::<FipNode>::v2(
+            None,
+            &Timestamp::now(),
+            ErrorCode::NotImplemented,
+            &("Not implemented (".to_string() + p + ")"),
+            Some(FipNode::default()),
+        ),
+    )
 }
 
-fn flag_bad_request(ec: ErrorCode, em: &str) -> InfallibleResult {
-    hs::flag(ErrResp::<FipNode>::v2(
-        None,
-        &Timestamp::now(),
-        ec,
-        em,
-        Some(FipNode::default()),
-    ))
+fn flag_too_large(ec: ErrorCode, em: &str) -> InfallibleResult {
+    hs::flag(
+        hyper::StatusCode::PAYLOAD_TOO_LARGE,
+        ErrResp::<FipNode>::v2(None, &Timestamp::now(), ec, em, Some(FipNode::default())),
+    )
 }
 
 // quick test

@@ -1,6 +1,4 @@
 use crate::cfg::Config;
-use crate::err;
-use crate::err::ErrorResponse;
 use crate::mutter::Mutter;
 use async_trait::async_trait;
 use data_encoding::BASE64;
@@ -21,67 +19,41 @@ use std::{
     sync::OnceLock,
 };
 
+use crate::ts::Timestamp;
+use crate::types::{Empty, ErrResp, ErrorCode};
+
 pub type InfallibleResult = Result<Response<Body>, Infallible>;
 pub static HTTP_PROC: OnceLock<Pin<Box<dyn HttpMethod>>> = OnceLock::new();
 
+pub fn flag_forbidden(em: &str) -> InfallibleResult {
+    self::flag(
+        hyper::StatusCode::FORBIDDEN,
+        ErrResp::<Empty>::v2(None, &Timestamp::now(), ErrorCode::Unauthorized, em, None),
+    )
+}
+
 #[async_trait]
 pub trait HttpMethod: Sync + Send {
-    fn delete(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        error!("HttpMethod::HttpPost::delete (default impl) {:#?}", req);
-        Ok(err::response(
-            StatusCode::BAD_REQUEST,
-            Mutter::UnsupportedHttpMethod,
-            Some("HTTP method DELETE not supported"),
-        ))
-        //Ok(Response::builder().body().unwrap())
+    fn delete(&self, _: Request<Body>) -> InfallibleResult {
+        flag_forbidden("HTTP method DELETE not supported")
     }
-    fn get(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        error!("HttpMethod::HttpPost::get (default impl) {:#?}", req);
-        Ok(err::response(
-            StatusCode::BAD_REQUEST,
-            Mutter::UnsupportedHttpMethod,
-            Some("HTTP method GET not supported"),
-        ))
+    fn get(&self, _: Request<Body>) -> InfallibleResult {
+        flag_forbidden("HTTP method GET not supported")
     }
-    fn head(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        error!("HttpMethod::HttpPost::head (default impl) {:#?}", req);
-        Ok(err::response(
-            StatusCode::BAD_REQUEST,
-            Mutter::UnsupportedHttpMethod,
-            Some("HTTP method HEAD not supported"),
-        ))
+    fn head(&self, _: Request<Body>) -> InfallibleResult {
+        flag_forbidden("HTTP method HEAD not supported")
     }
-    fn options(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        error!("HttpMethod::HttpPost::options (default impl) {:#?}", req);
-        Ok(err::response(
-            StatusCode::BAD_REQUEST,
-            Mutter::UnsupportedHttpMethod,
-            Some("HTTP method OPTIONS not supported"),
-        ))
+    fn options(&self, _: Request<Body>) -> InfallibleResult {
+        flag_forbidden("HTTP method OPTIONS not supported")
     }
-    fn patch(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        error!("HttpMethod::HttpPost::patch (default impl) {:#?}", req);
-        Ok(err::response(
-            StatusCode::BAD_REQUEST,
-            Mutter::UnsupportedHttpMethod,
-            Some("HTTP method PATCH not supported"),
-        ))
+    fn patch(&self, _: Request<Body>) -> InfallibleResult {
+        flag_forbidden("HTTP method PATCH not supported")
     }
-    fn post(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        error!("HttpMethod::HttpPost::post (default impl) {:#?}", req);
-        Ok(err::response(
-            StatusCode::BAD_REQUEST,
-            Mutter::UnsupportedHttpMethod,
-            Some("HTTP method POST not supported"),
-        ))
+    fn post(&self, _: Request<Body>) -> InfallibleResult {
+        flag_forbidden("HTTP method POST not supported")
     }
-    fn put(&self, req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        error!("HttpMethod::HttpPost::put (default impl) {:#?}", req);
-        Ok(err::response(
-            StatusCode::BAD_REQUEST,
-            Mutter::UnsupportedHttpMethod,
-            Some("HTTP method PUT not supported"),
-        ))
+    fn put(&self, _: Request<Body>) -> InfallibleResult {
+        flag_forbidden("HTTP method PUT not supported")
     }
 }
 
@@ -360,15 +332,12 @@ where
     } else {
         Ok(rb
             .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(
-                ErrorResponse::internal_server_error("unexpected json serialization error")
-                    .to_hyper_body(),
-            )
+            .body(Body::from("unexpected json serialization error"))
             .expect("internal server error"))
     }
 }
 
-pub fn flag<T>(t: T) -> InfallibleResult
+pub fn flag<T>(hsc: StatusCode, t: T) -> InfallibleResult
 where
     T: serde::Serialize,
 {
@@ -376,14 +345,11 @@ where
         .header("Content-Type", "application/json")
         .header("Cache-Control", "no-store no-cache");
     if let Ok(s) = serde_json::to_string::<T>(&t) {
-        Ok(rb.status(StatusCode::OK).body(Body::from(s)).expect("ok"))
+        Ok(rb.status(hsc).body(Body::from(s)).expect("ok"))
     } else {
         Ok(rb
             .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(
-                ErrorResponse::internal_server_error("unexpected json serialization error")
-                    .to_hyper_body(),
-            )
+            .body(Body::from("unexpected json serialization error"))
             .expect("internal server error"))
     }
 }
