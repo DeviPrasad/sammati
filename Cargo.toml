@@ -9,58 +9,16 @@ version = "0.0.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name="top"
-path="src/main.rs"
-
-[[bin]]
-name = "fipwap"
-path = "src/fip/wap/fipwap.rs"
-
-[[bin]]
-name = "fipsrv"
-path = "src/fip/srv/fipsrv.rs"
-
-[[bin]]
-name = "aawap"
-path = "src/aa/wap/aawap.rs"
-
-[[bin]]
-name = "aasrv"
-path = "src/aa/srv/aasrv.rs"
-
-[[bin]]
-name = "fiuwap"
-path = "src/fiu/wap/fiuwap.rs"
-
-[[bin]]
-name = "fiusrv"
-path = "src/fiu/srv/fiusrv.rs"
-
-[lib]
-name = "common"
-path = "src/common/lib.rs"
-
 # last updated on 16-august-2023, Thursday
 [dependencies]
 bytes = { version = "1", features = ["serde"] }
-clap = { version = "4", features = ["default", "derive"] }
-chrono = { version = "0", features = ["clock", "serde"]}
-chrono-tz = { version = "0" }
+chrono = { version = "0.*", features = ["clock", "serde"]}
 ### chrono feature: "std - interoperation with standard library types and traits."
 data-encoding = { version = "2" }
 #ed25519-dalek = { version = "2" }
-env_logger = { version = "0" }
-hyper = { version = "0", features = ["http1", "http2", "server", "tcp", "runtime", "stream"] }
-log = { version = "0" }
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1" }
-smol_str = { version = "0", featues = ["serde", "arbitrary", "default_features"]}
-tokio = { version = "1", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
 #url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = [ "v4"] }
-async-trait = { version = "0.1" }
-futures = "0"
 #x25519-dalek = { version = "2" }
 #zeroize = { version = "1" }
 
