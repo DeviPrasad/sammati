@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ts::Timestamp;
+use crate::ts::MsgUTCTs;
 ///
 /// changelogs from 1.2.0
 /// https://specifications.rebit.org.in/api_schema/account_aggregator/AA_ChangeLog_2_0_0.txt
@@ -20,7 +20,7 @@ use std::fmt::{Debug, Write as _};
 use std::str::FromStr;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServiceHealthStatus {
     UP,
     DOWN,
@@ -69,6 +69,10 @@ pub enum ErrorCode {
     DataGone,                   // RespCode::Gone
     NonEmptyBodyForGetRequest,
     PayloadTooLarge,
+    ErrorReadingRequestBody,
+    DetachedSignatureMissing,
+    InvalidDetachedSignature,
+    InvalidBase64Encoding,
 }
 
 impl ToString for ErrorCode {
@@ -108,11 +112,15 @@ impl ToString for ErrorCode {
             ErrorCode::DataGone => "DataGone",
             ErrorCode::NonEmptyBodyForGetRequest => "NonEmptyBodyForGetRequest",
             ErrorCode::PayloadTooLarge => "PayloadTooLarge",
+            ErrorCode::ErrorReadingRequestBody => "ErrorReadingRequestBody",
+            ErrorCode::DetachedSignatureMissing => "DetachedSignatureMissing",
+            ErrorCode::InvalidDetachedSignature => "InvalidDetachedSignature",
+            ErrorCode::InvalidBase64Encoding => "InvalidBase64Encoding",
         })
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UserConsentStatus {
     Active,
     Paused,
@@ -154,7 +162,7 @@ impl ToString for UserConsentMode {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FISessionStatus {
     Active,
     Completed,
@@ -174,7 +182,7 @@ impl ToString for FISessionStatus {
 }
 
 /// fetch-status of Financial Information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AccountFIStatus {
     Ready,
     Denied,
@@ -200,7 +208,7 @@ impl ToString for AccountFIStatus {
 /// (2) Token-based Authentication - FIP issues a token, which is to be included in the subsequent interaction
 ///     between AA and FIP. The token may be directly issued to the resource owner/customer.
 /// A token may be nonce, or a short-lived one-time password.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub enum FIPAccLinkingAuthType {
     Direct,
     Token,
@@ -215,7 +223,7 @@ impl ToString for FIPAccLinkingAuthType {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub enum FIPAccLinkStatus {
     Linked,
     Delinked,
@@ -244,55 +252,90 @@ pub enum Curve {
     Curve25519,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct FIPAccLinkReqRefNum {
     val: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct FIPAccLinkToken {
     val: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FIType {
+    #[serde(rename = "DEPOSIT")]
     Deposit,
+    #[serde(rename = "TERM_DEPOSIT")]
     TermDeposit,
+    #[serde(rename = "RECURRING_DEPOSIT")]
     RecurringDeposit,
+    #[serde(rename = "SIP")]
     SIP,
+    #[serde(rename = "CP")]
     CP,
+    #[serde(rename = "GOVT_SECURITIES")]
     GovtSecurities,
+    #[serde(rename = "EQUITIES")]
     Equities,
+    #[serde(rename = "BONDS")]
     Bonds,
+    #[serde(rename = "DEBENTURES")]
     Debentures,
+    #[serde(rename = "MUTUAL_FUNDS")]
     MutualFunds,
+    #[serde(rename = "ETF")]
     ETF,
+    #[serde(rename = "IDR")]
     IDR,
+    #[serde(rename = "CIS")]
     CIS,
+    #[serde(rename = "AIF")]
     AIF,
+    #[serde(rename = "INSURANCE_POLICIES")]
     InsurancePolicies,
+    #[serde(rename = "NPS")]
     NPS,
+    #[serde(rename = "INVIT")]
     INVIT,
+    #[serde(rename = "REIT")]
     REIT,
+    #[serde(rename = "GSTR1_3B")]
     GSTR1_3B,
     // sammati
+    #[serde(rename = "HOME_LOAN")]
     HomeLoan,
+    #[serde(rename = "GOLD_LOAN")]
     GoldLoan,
+    #[serde(rename = "VEHICLE_LOAN")]
     VehicleLoan,
+    #[serde(rename = "LA_FIXED_DEPOSIT")]
     LAFixedDeposit,
+    #[serde(rename = "LA_INSURANCE_POLICIES")]
     LAInsurancePolicies,
+    #[serde(rename = "LA_MUTUAL_FUNDS")]
     LAMF, // loan against mutual funds
+    #[serde(rename = "LA_SHARES")]
     LAShares,
+    #[serde(rename = "LA_PROPERTY")]
     LAProperty,
+    #[serde(rename = "LA_PF")]
     LAPF,
+    #[serde(rename = "LA_EPF")]
     LAEPF,
+    #[serde(rename = "PERSONAL_LOAN")]
     PersonalLoan, // demand promissory notes (DPN loans), mostly NBFCs
+    #[serde(rename = "CREDITCARD_LOAN")]
     CreditCardLoan,
+    #[serde(rename = "EDUCATION_LOAN")]
     EducationLoan,
+    #[serde(rename = "BUSINESS_LOAN")]
     BusinessLoan, // repayable in 36 months
+    #[serde(rename = "OTHER")]
     Other,
 }
 
+/*
 impl ToString for FIType {
     fn to_string(&self) -> String {
         String::from(match self {
@@ -334,13 +377,64 @@ impl ToString for FIType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl FromStr for FIType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "DEPOSIT" => Ok(FIType::Deposit),
+            /*FIType::TermDeposit => "TERM_DEPOSIT",
+            FIType::RecurringDeposit => "RECURRING_DEPOSIT",
+            FIType::SIP => "SIP",
+            FIType::CP => "CP",
+            FIType::GovtSecurities => "GOVT_SECURITIES",
+            FIType::Equities => "EQUITIES",
+            FIType::Bonds => "BONDS",
+            FIType::Debentures => "DEBENTURES",
+            FIType::MutualFunds => "MUTUAL_FUNDS",
+            FIType::ETF => "ETF",
+            FIType::IDR => "IDR",
+            FIType::CIS => "CIS",
+            FIType::AIF => "AIF",
+            FIType::InsurancePolicies => "INSURANCE_POLICIES",
+            FIType::NPS => "NPS",
+            FIType::INVIT => "INVIT",
+            FIType::REIT => "REIT",
+            FIType::GSTR1_3B => "GSTR1_3B",
+            FIType::HomeLoan => "HOME_LOAN",
+            FIType::GoldLoan => "GOLD_LOAN",
+            FIType::VehicleLoan => "VEHICLE_LOAN",
+            FIType::LAFixedDeposit => "LA_FIXED_DEPOSIT",
+            FIType::LAInsurancePolicies => "LA_INSURANCE_POLICIES",
+            FIType::LAMF => "LA_MUTUAL_FUNDS", // loan against mutual funds
+            FIType::LAShares => "LA_SHARES",
+            FIType::LAProperty => "LA_PROPERTY",
+            FIType::LAPF => "LA_PF",
+            FIType::LAEPF => "LA_EPF",
+            FIType::PersonalLoan => "PERSONAL_LOAN", // demand promissory notes (DPN loans), mostly NBFCs
+            FIType::CreditCardLoan => "CREDITCARD_LOAN",
+            FIType::EducationLoan => "EDUCATION_LOAN",
+            FIType::BusinessLoan => "BUSINESS_LOAN",
+            FIType::Other => "OTHER",*/
+            _ => Ok(FIType::Other),
+        }
+    }
+}
+*/
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FinAccType {
+    #[serde(rename = "SAVINGS")]
     Savings,
+    #[serde(rename = "CURRENT")]
     Current,
+    #[serde(rename = "DEFAULT")]
     Default,
+    #[serde(rename = "NRE")]
     NRE,
+    #[serde(rename = "NRO")]
     NRO,
+    #[serde(rename = "LOAN")]
     Loan,
 }
 
@@ -357,8 +451,9 @@ impl ToString for FinAccType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TxId {
+    #[serde(rename = "txnid")]
     pub val: String,
 }
 
@@ -387,9 +482,16 @@ impl TxId {
             Err(false)
         }
     }
+
+    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<TxId, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(|id| TxId { val: id.to_owned() })
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Base64EncUuid {
     pub rb: [u8; 16],
     pub es: String,
@@ -397,7 +499,7 @@ pub struct Base64EncUuid {
 
 pub type UuidRep = ([u8; 16], String);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Base64EncUuidErr {
     BadBase64,
     BadByteArray,
@@ -446,18 +548,18 @@ impl Base64EncUuid {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConsentHandle {
     pub val: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConsentId {
     pub val: String,
 }
 
 /// (mandatory)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserConsent {
     /// Unique ID generated by AA after consent approval is given by the customer.
     pub id: Option<ConsentId>,
@@ -469,11 +571,36 @@ pub struct UserConsent {
     pub status: UserConsentStatus,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AccOwnerIdCategory {
+    #[serde(rename = "STRONG")]
     Strong,
+    #[serde(rename = "WEAK")]
     Weak,
+    #[serde(rename = "ANCILLARY")]
     Ancillary,
+}
+
+impl ToString for AccOwnerIdCategory {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            AccOwnerIdCategory::Strong => "STRONG",
+            AccOwnerIdCategory::Weak => "WEAK",
+            AccOwnerIdCategory::Ancillary => "ANCILLARY",
+        })
+    }
+}
+
+impl FromStr for AccOwnerIdCategory {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "STRONG" => Ok(AccOwnerIdCategory::Strong),
+            "WEAK" => Ok(AccOwnerIdCategory::Weak),
+            "ANCILLARY" => Ok(AccOwnerIdCategory::Ancillary),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -484,26 +611,47 @@ pub struct FIPId {
 // discovered account information.
 // also used in FIP::AccLinkRequest accounts to be linked.
 // best viewed as a virtualized account descriptor representing a real/concrete FIP account.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPAccDesc {
     /// type of financial information
+    #[serde(rename = "FIType")]
     fi_type: FIType,
     // account Type or Sub FI Type
+    #[serde(rename = "accType")]
     acc_type: FinAccType,
     // unique FIP account reference number linked with the masked account number.
+    #[serde(rename = "accRefNumber")]
     acc_ref_num: FIPAccLinkRef,
+    #[serde(rename = "maskedAccNumber")]
     masked_acc_num: FIPMaskedAccNum,
 }
 
 // Unique FIP Account Reference Number which will be usually linked with a masked account number.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPAccLinkRef {
     val: String,
 }
+impl FIPAccLinkRef {
+    pub fn deser_from_str<'de, D>(d: D) -> Result<FIPAccLinkRef, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(d).map(|id| FIPAccLinkRef { val: id.to_owned() })
+    }
+}
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPMaskedAccNum {
     val: String,
+}
+
+impl FIPMaskedAccNum {
+    pub fn deser_from_str<'de, D>(d: D) -> Result<FIPMaskedAccNum, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(d).map(|id| FIPMaskedAccNum { val: id.to_owned() })
+    }
 }
 
 /// Unique FIP account reference number which is linked with the masked account number.
@@ -512,9 +660,27 @@ pub struct FIPMaskedAccRefNum {
     val: String,
 }
 
+impl FIPMaskedAccRefNum {
+    pub fn deser_from_str<'de, D>(d: D) -> Result<FIPMaskedAccRefNum, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(d).map(|id| FIPMaskedAccRefNum { val: id.to_owned() })
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct SessionCipherParam {
     val: String, // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH"
+}
+
+impl SessionCipherParam {
+    pub fn deser_from_str<'de, D>(d: D) -> Result<SessionCipherParam, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(d).map(|id| SessionCipherParam { val: id.to_owned() })
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -530,7 +696,7 @@ pub struct LinkedAccEncData {
 #[derive(Clone, Debug, Serialize)]
 pub struct DHPublicKey {
     // expiration of the public key.
-    expiry: Timestamp,
+    expiry: MsgUTCTs,
     // defines public parameters used to calculate session key (for data encryption and decryption).
     // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH"
     params: Option<SessionCipherParam>,
@@ -554,7 +720,7 @@ pub struct KeyMaterial {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct AccHolderConsentProof {
+pub struct AccOwnerConsentProof {
     /// unique id generated by AA after the account holder authorizes the consent request.
     consent_id: Bytes,
     /// signature part of the consent JWS.
@@ -571,16 +737,25 @@ pub struct FinInfo {
     pub key_material: KeyMaterial,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AccOwnerIdType {
+    #[serde(rename = "MOBILE")]
     Mobile,
+    #[serde(rename = "AADHAAR")]
     Aadhaar,
+    #[serde(rename = "EMAIL")]
     Email,
+    #[serde(rename = "PAN")]
     PAN,
+    #[serde(rename = "DOB")]
     DOB,
+    #[serde(rename = "ACCNUM")]
     AccNum, // ACCNO
+    #[serde(rename = "CRN")]
     CRN,
+    #[serde(rename = "PPAN")]
     PPAN,
+    #[serde(rename = "OTHERS")]
     Others,
 }
 
@@ -588,7 +763,7 @@ impl ToString for AccOwnerIdType {
     fn to_string(&self) -> String {
         String::from(match self {
             AccOwnerIdType::Mobile => "MOBILE",
-            AccOwnerIdType::Aadhaar => "AADHAR",
+            AccOwnerIdType::Aadhaar => "AADHAAR",
             AccOwnerIdType::Email => "EMAIL",
             AccOwnerIdType::PAN => "PAN",
             AccOwnerIdType::DOB => "DOB",
@@ -600,54 +775,91 @@ impl ToString for AccOwnerIdType {
     }
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct AccOwnerId {
+    val: String,
+}
+
+impl AccOwnerId {
+    pub fn deserialize_from_str<'de, D>(d: D) -> Result<AccOwnerId, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(d).map(|id| AccOwnerId { val: id.to_owned() })
+    }
+}
 /// Set of Identifiers required for discovering the accounts of a customer at the FIP.
 /// It is mandatory to provide at the least one STRONG category identifier.
-/// FIPs must employ KYC to ensure identitifers are verified and authenticated.
-#[derive(Debug, Clone)]
-pub struct FIPAccHolderIdentifer {
+/// FIPs must employ KYC to ensure identitifiers are verified and authenticated.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FIPAccOwnerIdentifier {
     // category of identifiers based on the ability to perform online authenticity
+    #[serde(rename = "category")]
     pub id_category: AccOwnerIdCategory,
     /// type of identifier
+    #[serde(rename = "type")]
     pub id_type: AccOwnerIdType,
-    /// value/number of the selected identifer
-    pub id_val: Bytes,
+    /// value/number of the selected identifier
+    #[serde(
+        rename = "value",
+        deserialize_with = "AccOwnerId::deserialize_from_str"
+    )]
+    pub id_val: AccOwnerId,
 }
 
-#[derive(Debug, Clone)]
-pub struct FIPAccHolderAAId {
-    id: String,
-}
-#[derive(Debug, Clone)]
-pub struct FIPAccHolder {
-    /// example: alice@sammati_aa_id
-    ro_aa_id: FIPAccHolderAAId,
-    identifiers: Vec<FIPAccHolderIdentifer>,
+#[derive(Clone, Debug, Serialize)]
+pub struct FIPAccOwnerAAId {
+    val: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct FIPAccHolderAccDescriptors {
+impl FIPAccOwnerAAId {
+    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<FIPAccOwnerAAId, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(|id| FIPAccOwnerAAId { val: id.to_owned() })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FIPAccOwner {
     /// example: alice@sammati_aa_id
-    pub ro_aa_id: FIPAccHolderAAId,
+    #[serde(
+        rename = "id",
+        deserialize_with = "FIPAccOwnerAAId::deserialize_from_str"
+    )]
+    ro_aa_id: FIPAccOwnerAAId,
+    #[serde(rename = "Identifiers")]
+    identifiers: Vec<FIPAccOwnerIdentifier>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FIPAccOwnerAccDescriptors {
+    /// example: bob@sammati_aa_id
+    #[serde(
+        rename = "id",
+        deserialize_with = "FIPAccOwnerAAId::deserialize_from_str"
+    )]
+    pub ao_aa_id: FIPAccOwnerAAId,
     /// list of customer's accounts to be linked
-    ///
     pub accounts: Vec<FIPAccDesc>,
 }
 
-#[derive(Debug, Clone)]
-pub struct FIPAccHolderLinkedAccRef {
+#[derive(Clone, Debug, Serialize)]
+pub struct FIPAccOwnerLinkedAccRef {
     // Identifier of the customer generated during the registration with AA.
     /// example: alice@sammati_aa_id.
-    pub ro_aa_id: FIPAccHolderAAId,
+    pub ao_aa_id: FIPAccOwnerAAId,
     /// An account's ref num at FIP - used in the delink_account request.
     /// Reference number assigned by FIP in the account linking flow.
     pub link_ref_num: FIPAccLinkRef,
 }
 
-#[derive(Debug, Clone)]
-pub struct FIPAccHolderLinkedAccStatus {
+#[derive(Clone, Debug, Serialize)]
+pub struct FIPAccOwnerLinkedAccStatus {
     // Identifier of the customer generated during the registration with AA.
     /// example: alice@sammati_aa_id.
-    pub ro_aa_id: FIPAccHolderAAId,
+    pub ro_aa_id: FIPAccOwnerAAId,
     /// An account's ref num at FIP - used in the delink_account request.
     /// Reference number assigned by FIP in the account linking flow.
     pub link_ref_num: FIPAccLinkRef,
@@ -655,11 +867,11 @@ pub struct FIPAccHolderLinkedAccStatus {
     pub status: FIPAccLinkStatus,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Serialize)]
 pub struct FIPVerifiedLinkedAccStatus {
     // Identifier of the customer generated during the registration with AA.
     /// example: alice@sammati_aa_id.
-    pub ro_aa_id: FIPAccHolderAAId,
+    pub ro_aa_id: FIPAccOwnerAAId,
     /// An account's ref num at FIP - used in the delink_account request.
     /// Reference number assigned by FIP in the account linking flow.
     pub link_ref_num: FIPAccLinkRef,
@@ -669,7 +881,7 @@ pub struct FIPVerifiedLinkedAccStatus {
     pub status: FIPAccLinkStatus,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Notifier {
     /// (required) type of the notifier entity; example: AA
     pub typ: String,
@@ -677,7 +889,7 @@ pub struct Notifier {
     pub id: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Serialize)]
 pub struct FinAccount {
     /// reference number assigned by FIP as part of the account linking process
     pub link_ref_num: String,
@@ -687,28 +899,28 @@ pub struct FinAccount {
 }
 
 /// (mandatory)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FIPAccHolderConsentStatus {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FIPAccOwnerConsentStatus {
     /// Unique ID generated by AA after consent approval is given by the account holder.
     pub id: Option<ConsentId>,
     /// (required) status of consent artefact
     pub status: UserConsentStatus,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SignedConsentDetail {
-    pub consent_start: Timestamp,
-    pub consent_exp: Timestamp,
+    pub consent_start: MsgUTCTs,
+    pub consent_exp: MsgUTCTs,
     pub consent_mode: UserConsentMode,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ConsentUse {}
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Empty {}
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ErrResp<T> {
     #[serde(rename = "version")]
     ver: String,
@@ -716,6 +928,8 @@ pub struct ErrResp<T> {
     tx_id: String,
     #[serde(rename = "timestamp")]
     ts: String,
+    #[serde(rename = "uts")]
+    uts: i64,
     /// error code pertaining to the invalid request
     #[serde(rename = "errorCode")]
     err_code: String,
@@ -731,14 +945,15 @@ impl<T> ErrResp<T>
 where
     T: Default,
 {
-    pub fn v2(tx_id: Option<TxId>, ts: &Timestamp, ec: ErrorCode, em: &str, cx: Option<T>) -> Self {
+    pub fn v2(tx_id: Option<TxId>, t: &MsgUTCTs, ec: ErrorCode, em: &str, cx: Option<T>) -> Self {
         ErrResp {
             ver: "2.0.0".to_string(),
             tx_id: match tx_id {
                 Some(t) => t.to_string(),
                 None => "".to_string(),
             },
-            ts: ts.to_string(),
+            ts: t.to_string(),
+            uts: t.ts,
             err_code: ec.to_string(),
             err_msg: em.to_string(),
             custom: cx,
@@ -747,7 +962,7 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+mod types {
     use super::Base64EncUuid;
     use super::Base64EncUuidErr;
 

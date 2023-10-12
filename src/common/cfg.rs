@@ -63,9 +63,14 @@ mod cfg {
     }
     #[test]
     fn test_002() {
-        let pb: PathBuf = [env!("CARGO_MANIFEST_DIR"), "mock", "config", "fip-cfg.json"]
-            .iter()
-            .collect();
+        let pb: PathBuf = [
+            env!("CARGO_MANIFEST_DIR"),
+            "mock",
+            "config",
+            "fip-wap-cfg.json",
+        ]
+        .iter()
+        .collect();
         let ps = pb.as_os_str().to_str().unwrap();
         let fip_cfg: Config = Config::from_path_str(ps).unwrap();
         let cfg = serde_json::to_string::<Config>(&fip_cfg);

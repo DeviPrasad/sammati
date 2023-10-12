@@ -1,0 +1,26 @@
+-- databases
+\l
+\l+
+\l+ fip_api_security_db
+
+
+-- users
+\du
+\du+
+
+
+-- tables
+\dt+ fip_api.*
+\dt+ fip_security.key
+
+-- schemas
+\dn
+\dn+
+
+
+-- desc table 
+\d+ fip_api.client
+\d+ fip_security.key
+
+
+SELECT grantor, grantee, table_schema, table_name, privilege_type, is_grantable  FROM information_schema.role_table_grants WHERE grantee='user_fip_key_cl';

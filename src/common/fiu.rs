@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ts::Timestamp;
+use crate::ts::MsgUTCTs;
 /// https://api.rebit.org.in/viewSpec/FIU_2_0_0.yaml
 use crate::types::FISessionStatus;
 use crate::types::FinAccount;
@@ -14,7 +14,7 @@ pub struct ConsentStatusNotification {
     /// (required) API version = 2.0.0
     pub ver: String,
     /// (required) creation timestamp of the message
-    pub timestamp: Timestamp,
+    pub timestamp: MsgUTCTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub txid: TxId,
     /// (required)
@@ -45,7 +45,7 @@ pub struct FIStatusNotification {
     /// (required) API version = 2.0.0
     pub ver: String,
     /// (required) creation timestamp of the message
-    pub timestamp: Timestamp,
+    pub timestamp: MsgUTCTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub txid: TxId,
     /// (required)
@@ -65,7 +65,7 @@ trait ConsentNotification {
 }
 #[cfg(test)]
 mod tests {
-    use crate::ts::Timestamp;
+    use crate::ts::MsgUTCTs;
     use crate::fiu::ConsentStatusNotification;
     use crate::types::Notifier;
     use crate::types::{ConsentHandle, ConsentId, TxId, UserConsent, UserConsentStatus};
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn pass_fiu_consent_status_notification_01() {
         // let _ts = Timestamp::from_str("2023-08-15T12:07:53");
-        let ts = Timestamp::from_str("2023-08-15T12:07:53.153Z");
+        let ts = MsgUTCTs::from_str("2023-08-15T12:07:53.153Z");
         println!("{:#?}", ts);
         let csn = ConsentStatusNotification {
             ver: "2.0.0".to_owned(),

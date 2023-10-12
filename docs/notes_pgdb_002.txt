@@ -1,0 +1,130 @@
+
+-- psql -h myhost -d mydb -U myuser -W
+
+192.168.0.100 db.keys.sammati.fip
+
+Edit pg_hba.conf
+$ sudo vi  /Library/PostgreSQL/14/data/pg_hba.conf
+and add the following record:
+host    "fip_keys_db"   "fip_key_reader"  "db.keys.sammati.fip"  password  
+
+
+drop user if exists user_fip_key_cl;
+create user user_fip_key_cl with password 'rusk#cl#1234';
+
+drop user if exists user_fip_key_admin;
+create user user_fip_key_admin with password 'rusk#admin#12345';
+
+drop user if exists user_fip_key_maker;
+create user user_fip_key_maker with password 'rusk#maker#12345';
+
+drop user if exists user_fip_su;
+create user user_fip_su with password 'rusk#fipsu#12345';
+
+
+create database "fip_api_security_db";
+\connect fip_api_security_db;
+
+begin transaction isolation level serializable;
+
+drop table if exists fip_api.client cascade;
+drop schema if exists fip_api cascade;
+create schema fip_api;
+create type fip_api.clst as enum ('active', 'blocked', 'disabled', 'expired');
+create table fip_api.client(
+    cid      varchar(256),
+    api_key  bit(128),
+    kid      bit(128),
+    iat      timestamp with time zone,
+    exp      timestamp with time zone,
+    nbf      timestamp with time zone,
+    status   fip_api.clst,
+
+    primary key (cid, api_key),
+    unique (cid, kid)
+);
+
+
+drop table if exists fip_security.ds cascade;
+drop schema if exists fip_security cascade;
+create schema fip_security;
+-- alter database fip_keys_db set search_path to fip_security;
+create type fip_security.alg as enum ('ES256', 'ES384', 'ES512', 'EdDSA', 'HS256', 'HS384', 'HS512');
+create type fip_security.keytype as enum ('EC', 'oct', 'OKP');
+create type fip_security.keyuse as enum ('sig', 'enc');
+create type fip_security.keyops as enum ('sign', 'verify', 'encrypt', 'decrypt');
+create type fip_security.keyfmt as enum ('pem', 'der', 'octets', 'decrypt');
+create type fip_security.keystate as enum ('active', 'blocked', 'created', 'disabled', 'expired');
+create table fip_security.ds(
+    kid      uuid,
+    alg      varchar(32),
+    kty      fip_security.keytype,
+    use      fip_security.keyuse,
+    ops      fip_security.keyops[],
+    fmt      fip_security.keyfmt,
+    sk_pem   varchar(1024),
+    vk_pem   varchar(1024),
+    nonce    bit varying(256),
+    iat      timestamp with time zone default current_timestamp,
+    exp      timestamp with time zone default current_timestamp,
+    nbf      timestamp with time zone default current_timestamp,
+    status   fip_security.keystate default 'created',
+
+    primary key (kid),
+    unique (sk_pem),
+    unique (vk_pem),
+    unique (kid, nonce),
+    unique (kid, sk_pem)
+);
+
+drop table if exists fip_tx.discovery cascade;
+drop table if exists fip_tx.consent cascade;
+drop schema if exists fip_tx cascade;
+create schema fip_tx;
+
+--# example
+-- insert into fip_security.ds values('550e8400-e29b-41d4-a716-446655440000', 'ES256', 'EC', 'sig', '{"sign"}', 'pem', NULL, NULL, NULL, default, default, default, default);
+-- insert into fip_security.ds values('5a20d368-c188-47d1-b917-8fead20a0366', 'ES256', 'EC', 'sig', '{"sign", "verify"}', 'pem', NULL, NULL, NULL, default, current_timestamp + interval '6 months', current_timestamp + interval '10 minutes', default);
+--
+
+--####
+--## prevent public access.
+revoke all on database fip_api_security_db from public;
+revoke all on schema fip_api from public;
+revoke all on schema fip_security from public;
+
+--## user_fip_key_admin
+revoke all on database fip_api_security_db from user_fip_key_admin;
+grant connect on database fip_api_security_db to user_fip_key_admin;
+grant all on schema fip_security to user_fip_key_admin;
+grant all on schema fip_api to user_fip_key_admin;
+grant SELECT, UPDATE on table fip_security.ds to user_fip_key_admin;
+grant all on table fip_api.client to user_fip_key_admin;
+alter table fip_api.client owner to user_fip_key_admin;
+--##
+
+--## fip_key_cl
+revoke all on database fip_api_security_db from user_fip_key_cl;
+grant connect on database fip_api_security_db to user_fip_key_cl;
+
+revoke all on schema fip_security from user_fip_key_cl;
+grant usage on schema fip_security to user_fip_key_cl;
+grant select on table fip_security.ds to user_fip_key_cl;
+
+revoke all on schema fip_api from user_fip_key_cl;
+grant usage on schema fip_api to user_fip_key_cl;
+grant select on table fip_api.client to user_fip_key_cl;
+----##
+
+--## user_fip_key_maker
+revoke all on database fip_api_security_db from user_fip_key_maker;
+grant connect on database fip_api_security_db to user_fip_key_maker;
+grant all on schema fip_security to user_fip_key_maker;
+alter table fip_security.ds owner to user_fip_key_maker;
+----##
+
+--##
+-- make "user_fip_su" owner of 
+alter schema fip_tx owner to user_fip_su;
+alter schema fip_security owner to user_fip_su;
+alter schema fip_api owner to user_fip_su;

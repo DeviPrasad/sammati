@@ -14,27 +14,27 @@ name="top"
 path="src/main.rs"
 
 [[bin]]
-name = "fipwap"
+name = "fip_wap"
 path = "src/fip/wap/fipwap.rs"
 
 [[bin]]
-name = "fipsrv"
+name = "fip_srv"
 path = "src/fip/srv/fipsrv.rs"
 
 [[bin]]
-name = "aawap"
+name = "aa_wap"
 path = "src/aa/wap/aawap.rs"
 
 [[bin]]
-name = "aasrv"
+name = "aa_srv"
 path = "src/aa/srv/aasrv.rs"
 
 [[bin]]
-name = "fiuwap"
+name = "fiu_wap"
 path = "src/fiu/wap/fiuwap.rs"
 
 [[bin]]
-name = "fiusrv"
+name = "fiu_srv"
 path = "src/fiu/srv/fiusrv.rs"
 
 [lib]
@@ -43,25 +43,28 @@ path = "src/common/lib.rs"
 
 # last updated on 16-august-2023, Thursday
 [dependencies]
+aes-gcm = { version = "^0.10" }
+async-trait = { version = "0.1" }
+boring = { version = "^3" }
 bytes = { version = "1", features = ["serde"] }
-clap = { version = "4", features = ["default", "derive"] }
-chrono = { version = "0", features = ["clock", "serde"]}
+# chacha20poly1305 = { version = "^0.10" }
+chrono = { version = "0", features = ["clock", "serde", "std"]}
 chrono-tz = { version = "0" }
-### chrono feature: "std - interoperation with standard library types and traits."
+clap = { version = "4", features = ["default", "derive"] }
 data-encoding = { version = "2" }
-#ed25519-dalek = { version = "2" }
+dull = { path = "../../dull/jwtse/rust/dulljwt", package = "dulljwt" }
+ed25519-dalek = { version = "^2.0", features = ["alloc", "asm", "digest", "pem", "pkcs8", "std"] }
 env_logger = { version = "0" }
+hkdf = { version = "^0" }
 hyper = { version = "0", features = ["http1", "http2", "server", "tcp", "runtime", "stream"] }
 log = { version = "0" }
-serde = { version = "1", features = ["derive"] }
+rand_core = { version = "0.6" }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1" }
-smol_str = { version = "0", featues = ["serde", "arbitrary", "default_features"]}
-tokio = { version = "1", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
+sha2 = {version = "0.10.8" }
+tokio = { version = "1.32", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
 #url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = [ "v4"] }
-async-trait = { version = "0.1" }
-futures = "0"
-#x25519-dalek = { version = "2" }
-#zeroize = { version = "1" }
+x25519-dalek = { version = "^2.0", features = ["static_secrets"] }
 
 [dev-dependencies]
