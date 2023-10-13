@@ -52,7 +52,7 @@ chrono = { version = "0", features = ["clock", "serde", "std"]}
 chrono-tz = { version = "0" }
 clap = { version = "4", features = ["default", "derive"] }
 data-encoding = { version = "2" }
-dull = { path = "../../dull/jwtse/rust/dulljwt", package = "dulljwt" }
+dull = { path = "../../dull/jwtse/rust/dull", package = "dull" }
 ed25519-dalek = { version = "^2.0", features = ["alloc", "asm", "digest", "pem", "pkcs8", "std"] }
 env_logger = { version = "0" }
 hkdf = { version = "^0" }

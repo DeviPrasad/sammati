@@ -4,8 +4,9 @@ use crate::fip::AccDiscoveryReq;
 use crate::mutter::Mutter;
 use data_encoding::BASE64URL_NOPAD;
 use dull::jws::SigVerifier;
-use dull::jwt::DullJwtHeaderRep;
 use dull::jwt::JwsHeaderDeserializer;
+use dull::jwt::JwsHeaderParams;
+use dull::jwt::JwtHeaderRep;
 // use dull_jwt::jws;
 
 /*
@@ -51,8 +52,8 @@ impl Default for SigChecker {
 impl DetachedSigChecker for SigChecker {
     fn verify(&self, _h: &[u8], _t: &[u8], _m: &str) -> Result<bool, Mutter> {
         //dull::jwt::DullJwtHeaderRep::default()
-        let _jv: dull::jws::DullJwsVerifier<'_> =
-            dull::jws::DullJwsVerifier::from_key_resolver(&self.nks);
+        let _jv: dull::jws::JwsSigVerifier<'_> =
+            dull::jws::JwsSigVerifier::from_key_resolver(&self.nks);
 
         Err(Mutter::BadBase64Encoding)
     }
@@ -97,7 +98,7 @@ impl DetachedSignature {
             return Err(Mutter::InvalidDetachedSignature);
         }
         log::info!("DetachedSignature::verify - header and tag extracted");
-        let djh = DullJwtHeaderRep::default()
+        let djh = JwtHeaderRep::default()
             .deserialize(b64_header)
             .map_err(|_e| {
                 log::error!("DetachedSignature::verify - bad header {:#?}", _e);
@@ -107,17 +108,16 @@ impl DetachedSignature {
             "DetachedSignature::verify - headerbase64-encoding good: {:#?}",
             djh
         );
+        // check if this detached content is base64 encoded
+        let msg_bytes = if djh.b64().is_none() || djh.b64().unwrap() {
+            BASE64URL_NOPAD.encode(m.as_bytes()).as_bytes().to_vec()
+        } else {
+            Vec::from(m)
+        };
         let ks = dull::nickel::NickelKeyStore::default();
         let jv: &dyn SigVerifier<'_, AccDiscoveryReq, 4096> =
-            &dull::jws::DullJwsVerifier::from_key_resolver(&ks);
-        let compact = [
-            b64_header,
-            ".".as_bytes(),
-            BASE64URL_NOPAD.encode(m.as_bytes()).as_bytes(),
-            ".".as_bytes(),
-            tag,
-        ]
-        .concat();
+            &dull::jws::JwsSigVerifier::from_key_resolver(&ks);
+        let compact = [b64_header, ".".as_bytes(), &msg_bytes, ".".as_bytes(), tag].concat();
         jv.verify(&(String::from_utf8(compact).unwrap()))
             .map(|adr| {
                 log::info!("DetachedSignature::verify - verified: {:#?}", adr);
@@ -171,8 +171,7 @@ mod test_detached_sig {
     // 256-bit (32 byte) random 'kid'
     // base64 url-encoded 512-bit (64 byte) key - 86 bytes in size here.
     use dull::jwa::SignatureAlgorithm;
-    use dull::jws::{DullJwsVerifier, JWSigner, SigVerifier};
-    use dull::jwt::JwseHeader;
+    use dull::jws::{JWSigner, JwsSigVerifier, SigVerifier};
     use dull::nickel::NickelKeyStore;
     use dull::webkey::{KeyDesc, KeyStore};
 
@@ -215,15 +214,13 @@ Og==
         }
         {
             let jws = JWSigner::for_nickel(&nks);
-            let claims_json = br#"{"ver":"2.0.0","timestamp":"2023-10-10T22:23:01.104Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"https://sammati.org/v2/aa/vid/62415073905193203","Identifiers":[{"category":"STRONG","type":"AADHAAR","value":"150739051932"},{"category":"STRONG","type":"MOBILE","value":"9234567890"}]},"FITypes":["DEPOSIT","EDUCATION_LOAN","HOME_LOAN"]}"#;
-            let kd = KeyDesc::from_alg_kid_type(
+            let claims_json = br#"{"ver":"2.0.0","timestamp":"2023-10-10T22:23:01.104Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"sammati.in/aa/uid/93581273406451947182","Identifiers":[{"category":"STRONG","type":"AADHAAR","value":"350739051968"},{"category":"STRONG","type":"MOBILE","value":"9358127340"}]},"FITypes":["DEPOSIT","EDUCATION_LOAN","HOME_LOAN"]}"#;
+            let kd = KeyDesc::from_alg_kid(
                 SignatureAlgorithm::ES512,
                 &String::from_utf8(KID_ES512_PRIVATE_KEY_01.to_vec()).unwrap(),
-                "AT+JWT",
             );
-            let header = JwseHeader::from_alg_type_kid(
+            let header: dull::jwt::JwsHeader = dull::jwt::JwsHeader::with_alg_kid(
                 SignatureAlgorithm::ES512,
-                "AT+JWT",
                 &String::from_utf8(KID_ES512_PUBLIC_KEY_01.to_vec()).unwrap(),
             );
             let res = jws.signed_jwt_public_key_embedded(&kd, &header, claims_json);
@@ -267,15 +264,13 @@ Eg==
         }
         {
             let jws = JWSigner::for_nickel(&nks);
-            let claims_json = br#"{"ver":"2.0.0","timestamp":"2023-10-10T22:23:01.104Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"https://sammati.org/v2/aa/vid/62415073905193203","Identifiers":[{"category":"STRONG","type":"AADHAAR","value":"150739051932"},{"category":"STRONG","type":"MOBILE","value":"9234567890"}]},"FITypes":["DEPOSIT","EDUCATION_LOAN","HOME_LOAN"]}"#;
-            let kd = KeyDesc::from_alg_kid_type(
+            let claims_json = br#"{"ver":"2.0.0","timestamp":"2023-10-10T22:23:01.104Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"sammati.in/aa/uid/62415273490451973263","Identifiers":[{"category":"STRONG","type":"AADHAAR","value":"150739051932"},{"category":"STRONG","type":"MOBILE","value":"6241527349"}]},"FITypes":["DEPOSIT","EDUCATION_LOAN","HOME_LOAN"]}"#;
+            let kd = KeyDesc::from_alg_kid(
                 SignatureAlgorithm::ES512,
                 &String::from_utf8(KID_ES512_PRIVATE_KEY_02.to_vec()).unwrap(),
-                "DPOP+JWT",
             );
-            let header = JwseHeader::from_alg_type_kid(
+            let header = dull::jwt::JwsHeader::with_alg_kid(
                 SignatureAlgorithm::ES512,
-                "DPOP+JWT",
                 &String::from_utf8(KID_ES512_PUBLIC_KEY_02.to_vec()).unwrap(),
             );
             // sign
@@ -285,10 +280,71 @@ Eg==
             let jwt = signed_jwt.unwrap();
             println!("{:#?}", String::from_utf8(jwt.clone()).unwrap());
 
-            let djv: DullJwsVerifier<'_> = DullJwsVerifier::from_key_resolver(&nks);
+            let djv: JwsSigVerifier<'_> = JwsSigVerifier::from_key_resolver(&nks);
             let dv: &dyn SigVerifier<AccDiscoveryReq, 8092> =
                 &djv as &dyn SigVerifier<AccDiscoveryReq, 8092>;
             let res = dv.verify(&String::from_utf8(jwt.clone()).unwrap());
+            assert!(res.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_non_url_encoded_content() {
+        let pub_key_pem = br#"-----BEGIN PUBLIC KEY-----
+MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQAIhg9CZqpfVkZ2R8sgsfQxD+yr6dd
+zGuAkCVQnNgd+gazK7s7bNBebR3O2WKp7RzmREeEyZLZsCttPraE2DYt4voAeTPK
+oPCVdQSXCp/bllC2CilKZB9eV8Kc63CJQWCtCx+wFnvgtz31I8s4fyl0RLup8MsM
++qIzKdpFXXD9dGqGWBI=
+-----END PUBLIC KEY-----"#;
+        let pr_key_pem = br#"-----BEGIN PRIVATE KEY-----
+MIHuAgEAMBAGByqGSM49AgEGBSuBBAAjBIHWMIHTAgEBBEIANme+u5jHfsxd4GST
+L8VtavJS4fPiM+XstAWwG1i3IjNqK1yL2VVM/o6fyMi4sFa0s+TfWlEFJa/+diKh
+khdz79mhgYkDgYYABAAiGD0Jmql9WRnZHyyCx9DEP7Kvp13Ma4CQJVCc2B36BrMr
+uzts0F5tHc7ZYqntHOZER4TJktmwK20+toTYNi3i+gB5M8qg8JV1BJcKn9uWULYK
+KUpkH15XwpzrcIlBYK0LH7AWe+C3PfUjyzh/KXREu6nwywz6ojMp2kVdcP10aoZY
+Eg==
+-----END PRIVATE KEY-----"#;
+        let mut nks = NickelKeyStore::default();
+
+        {
+            let ks: &mut dyn KeyStore = &mut nks;
+            let res = ks.add_sig_ec_public_key_pem(
+                SignatureAlgorithm::ES512,
+                &String::from_utf8(KID_ES512_PUBLIC_KEY_02.to_vec()).unwrap(),
+                pub_key_pem,
+            );
+            assert!(res);
+            let res = ks.add_sig_ec_private_key_pem(
+                SignatureAlgorithm::ES512,
+                &String::from_utf8(KID_ES512_PRIVATE_KEY_02.to_vec()).unwrap(),
+                pr_key_pem,
+            );
+            assert!(res);
+        }
+        {
+            let jws = JWSigner::for_nickel(&nks);
+            let claims_json = br#"{"ver":"2.0.0","timestamp":"2023-10-10T22:23:01.104Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"sammati.in/aa/uid/62415273490451973263","Identifiers":[{"category":"STRONG","type":"AADHAAR","value":"150739051932"},{"category":"STRONG","type":"MOBILE","value":"6241527349"}]},"FITypes":["DEPOSIT","EDUCATION_LOAN","HOME_LOAN"]}"#;
+            let kd = KeyDesc::from_alg_kid(
+                SignatureAlgorithm::ES512,
+                &String::from_utf8(KID_ES512_PRIVATE_KEY_02.to_vec()).unwrap(),
+            );
+            // let header = dull::jwt::JwsHeader::with_alg_kid_non_urlencoded_detached(
+            let header = dull::jwt::JwsHeader::with_alg_kid(
+                SignatureAlgorithm::ES512,
+                &String::from_utf8(KID_ES512_PUBLIC_KEY_02.to_vec()).unwrap(),
+            );
+            // sign
+            let signed_jwt = jws.signed_jwt_public_key_embedded(&kd, &header, claims_json);
+            assert!(signed_jwt.is_ok());
+            // verify the JWT
+            let jwt = signed_jwt.unwrap();
+            println!("{:#?}", String::from_utf8(jwt.clone()).unwrap());
+
+            let djv: JwsSigVerifier<'_> = JwsSigVerifier::from_key_resolver(&nks);
+            let dv: &dyn SigVerifier<AccDiscoveryReq, 8092> =
+                &djv as &dyn SigVerifier<AccDiscoveryReq, 8092>;
+            let res = dv.verify(&String::from_utf8(jwt.clone()).unwrap());
+            println!("test_non_url_encoded_content {:#?}", res);
             assert!(res.is_ok());
         }
     }
