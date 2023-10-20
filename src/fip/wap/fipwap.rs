@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
-use std::sync::OnceLock;
+use std::{pin::Pin, sync::OnceLock};
 
-use bytes::Bytes;
+use dull::{jws::DetachedSig, jwt::Grumble};
 use hyper::{Body, Request};
 use serde::{Deserialize, Serialize};
 
 use common::{
     cfg::Config,
-    detached, fip,
+    fip,
     hs::{self, BodyTrait, Headers, HttpEndpoint, HttpMethod, InfallibleResult, HTTP_PROC},
     mutter::{self, Mutter},
     ts::MsgUTCTs,
@@ -21,6 +21,11 @@ pub struct HttpReqProc {}
 
 // endpoint config for shared access
 pub static EP_CFG: OnceLock<Box<Config>> = OnceLock::<Box<Config>>::new();
+pub static JWS: OnceLock<Pin<Box<dyn dull::jws::JwsDetachedSigVerifier>>> =
+    OnceLock::<Pin<Box<dyn dull::jws::JwsDetachedSigVerifier>>>::new();
+// _NICKEL_KEY_STORE_ is an implementation detail. It is used to construct 'JWS' defined above.
+pub static _NICKEL_KEY_STORE_: OnceLock<dull::nickel::NickelKeyStore> =
+    OnceLock::<dull::nickel::NickelKeyStore>::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Kube {
@@ -118,9 +123,32 @@ impl HttpMethod for HttpReqProc {
         }
         let _dpop = hp.probe("DPoP");
         let _sammati_api_key = hp.probe("x-sammati-api-key");
-        let jws_sig = hp.probe("x-jws-signature");
+        let x_jws_sig = hp.probe("x-jws-signature");
 
-        if jws_sig.is_none() {
+        if let Some(ds) = x_jws_sig {
+            //let djv = JWS.get().unwrap();
+            match JWS.get() {
+                Some(djv) => {
+                    if let Err(e) =
+                        djv.verify(&DetachedSig::from(&ds.as_bytes()), &body_json.as_bytes())
+                    {
+                        log::error!("Message signature verification failed");
+                        return flag_error(
+                            hyper::StatusCode::UNAUTHORIZED,
+                            match e {
+                                Grumble::Base64EncodingBad => ErrorCode::InvalidBase64Encoding,
+                                Grumble::BadDetachedSignature => {
+                                    ErrorCode::InvalidDetachedSignature
+                                }
+                                _ => ErrorCode::SignatureDoesNotMatch,
+                            },
+                            "Invalid detached signature",
+                        );
+                    }
+                }
+                _ => return flag_internal_error("JWS keystore access error"),
+            }
+        } else {
             log::error!("Signature missing - cannot authenticate request");
             return flag_error(
                 hyper::StatusCode::FORBIDDEN,
@@ -128,21 +156,7 @@ impl HttpMethod for HttpReqProc {
                 "Signature missing - cannot authenticate request",
             );
         }
-        let detached_sig: Bytes = jws_sig.unwrap().into();
-        let res_ds = detached::DetachedSignature::verify(&detached_sig, &body_json);
-        if let Some(err) = res_ds.err() {
-            log::error!("Message signature verification failed");
-            return flag_error(
-                hyper::StatusCode::UNAUTHORIZED,
-                match err {
-                    Mutter::BadBase64Encoding => ErrorCode::InvalidBase64Encoding,
-                    Mutter::InvalidDetachedSignature => ErrorCode::InvalidDetachedSignature,
-                    Mutter::SignatureVerificationFailed => ErrorCode::SignatureDoesNotMatch,
-                    _ => ErrorCode::SignatureDoesNotMatch,
-                },
-                "Invalid detached signature",
-            );
-        }
+
         match uri.path() {
             "/Accounts/discover" => {
                 log::info!("FIP POST /Accounts/discover");
@@ -195,7 +209,10 @@ impl HttpMethod for HttpReqProc {
 
 // run as
 // RUST_LOG=debug cargo run --bin fip_wap -- --config mock/config/fip-wap-cfg.json
-//
+// RUSTFLAGS='--cfg production' cargo  run --bin fip_wap -- --config mock/config/fip-wap-cfg.json
+// cargo run --bin fip_wap -- --config mock/config/fip-wap-cfg.json
+// dev_test conditional compilation
+// RUSTFLAGS='--cfg dev_test' cargo  run --bin fip_wap -- --config mock/config/fip-wap-cfg.json
 #[tokio::main]
 async fn main() {
     mutter::init_log();
@@ -211,7 +228,26 @@ async fn main() {
             log::info!("Try FIP App Proxy init...");
             EP_CFG
                 .set(Box::<Config>::new(cfg.clone()))
-                .expect("host config");
+                .expect("kube config");
+
+            //#[cfg(not(dev_test))]
+            #[cfg(production)]
+            {
+                let nks = dull::nickel::NickelKeyStore::default();
+                _NICKEL_KEY_STORE_.set(nks).expect("nickel keystore");
+                let _ = JWS.set(Box::pin(dull::jws::JWS::new(
+                    _NICKEL_KEY_STORE_.get().unwrap(),
+                )));
+            }
+            #[cfg(not(production))]
+            {
+                let mut nks = dull::nickel::NickelKeyStore::default();
+                nickel_cache_init_well_known_sig_keys(&mut nks);
+                _NICKEL_KEY_STORE_.set(nks).expect("nickel keystore");
+                let _ = JWS.set(Box::pin(dull::jws::JWS::new(
+                    _NICKEL_KEY_STORE_.get().unwrap(),
+                )));
+            }
             let _ = HttpEndpoint::start(&cfg).await;
         }
         _ => {
@@ -227,6 +263,14 @@ fn answer_health_ok() -> InfallibleResult {
         ServiceHealthStatus::UP,
         Some(Kube::default()),
     ))
+}
+
+fn flag_internal_error(p: &str) -> InfallibleResult {
+    flag_error(
+        hyper::StatusCode::INTERNAL_SERVER_ERROR,
+        ErrorCode::InternalError,
+        &("Unrecoverable internal error (".to_string() + p + ")"),
+    )
 }
 
 fn flag_service_unavailable(p: &str) -> InfallibleResult {
@@ -278,6 +322,35 @@ fn flag_error(sc: hyper::StatusCode, ec: ErrorCode, em: &str) -> InfallibleResul
 
 fn flag_invalid_content(ec: ErrorCode, em: &str) -> InfallibleResult {
     flag_error(hyper::StatusCode::BAD_REQUEST, ec, em)
+}
+
+// dev_test conditional compilation
+// RUSTFLAGS='--cfg dev_test' cargo  run --bin fip_wap -- --config mock/config/fip-wap-cfg.json
+#[cfg(not(production))]
+fn nickel_cache_init_well_known_sig_keys(nks: &mut dull::nickel::NickelKeyStore) {
+    const FIP_WAP_HS512_KID_01: &str = "GRVj3Kqoq2Qe7WLqI0dKSecjMJdcpLOaXVXfwQekkDc";
+    const FIP_WAP_HS256_KID_02: &str = "iMqHlCcok0lLZfphYdjh-HaBlb0T8hCcGQf4skWcf8g";
+    const FIP_WAP_HS512_KEY: &str =
+        "x4w7vzRFbvbrZ1IArIKKDgHQ3p6XC7CF5AowbojVCbcQIgexHwefDrYyUw0T43hnWsBJBcj5jD11hPgBHCJXIQ";
+    const FIP_WAP_HS256_KEY: &str = "U9DayvJzo8hXTvDpy_psbaRDjcGUukmUR6oFfj7CURPBrPOC3ZL-6cO363dg";
+
+    //let mut nks = NickelKeyStore::default();
+    {
+        let ks: &mut dyn dull::webkey::KeyStore = nks;
+        let res = ks.add_sig_hmac_key(
+            dull::jwa::SignatureAlgorithm::HS512,
+            FIP_WAP_HS512_KID_01,
+            FIP_WAP_HS512_KEY.as_bytes(), // "x4w7vzRFbvbrZ1IArIKKDgHQ3p6XC7CF5AowbojVCbcQIgexHwefDrYyUw0T43hnWsBJBcj5jD11hPgBHCJXIQ".as_bytes(),
+        );
+        assert!(res);
+        let res = ks.add_sig_hmac_key(
+            dull::jwa::SignatureAlgorithm::HS256,
+            FIP_WAP_HS256_KID_02,
+            // key size is 45 bytes (suitable for HS256; not for HS384, which requires min length of 48 bytes)
+            FIP_WAP_HS256_KEY.as_bytes(), //"U9DayvJzo8hXTvDpy_psbaRDjcGUukmUR6oFfj7CURPBrPOC3ZL-6cO363dg".as_bytes(),
+        );
+        assert!(res);
+    }
 }
 
 // quick test

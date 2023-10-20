@@ -1,0 +1,6 @@
+curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/Accounts/discover'\
+    -H 'Accept: application/json'\
+    -H 'Content-Type: application/json'\
+    -H 'x-jws-signature: eyJhbGciOiJIUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6ImlNcUhsQ2NvazBsTFpmcGhZZGpoLUhhQmxiMFQ4aENjR1FmNHNrV2NmOGcifQ..0RAjkLpkF94MPjgWHY5VxhwAhLMvcjcr2LHOYluERoc'\
+    -H 'x-sammati-api-key: b351804dfcdc5fd1aed0263f775f'\
+    -d '{"ver":"2.0.0","timestamp":"2023-10-10T22:23:01.104Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"sammati.in/aa/uid/62415273490451973263","Identifiers":[{"category":"STRONG","type":"AADHAAR","value":"150739051932"},{"category":"STRONG","type":"MOBILE","value":"6241527349"}]},"FITypes":["DEPOSIT","EDUCATION_LOAN","HOME_LOAN"]}'
