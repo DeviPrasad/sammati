@@ -14,6 +14,17 @@ use x25519_dalek::{PublicKey, StaticSecret};
 // Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC
 // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38d.pdf, section 5.
 
+// https://soatok.blog/2021/11/17/understanding-hkdf/
+// Recall that the HKDF algorithm uses salts in the HDKF-Extract step.
+// Salts in this context were intended for deriving keys from a Diffie-Hellman output,
+// or a human-memorable password.
+// In the case of ECDH outputs, the result of the key exchange algorithm is a random group element,
+// but not necessarily uniformly random bit string. There’s some structure to the output of these functions.
+// This is why you always, at minimum, apply a cryptographic hash function to the
+// output of [EC]DH before using it as a symmetric key.
+// HKDF uses salts as a mechanism to improve the quality of randomness
+// when working with group elements and passwords.
+
 pub struct FIDataSession {
     pub pr_key: [u8; 32],
     pub pub_key: PublicKey,
