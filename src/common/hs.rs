@@ -7,7 +7,7 @@ use hyper::{
     header,
     server::conn::AddrStream,
     service::{make_service_fn, service_fn},
-    Body, HeaderMap, Method, Request, Response, Server, StatusCode,
+    Body, HeaderMap, Method, Request, Response, Server,
 };
 use log::{error, info, warn};
 use std::{
@@ -19,16 +19,16 @@ use std::{
     sync::OnceLock,
 };
 
-use crate::ts::Timestamp;
+use crate::ts::MsgUTCTs;
 use crate::types::{Empty, ErrResp, ErrorCode};
 
-pub type InfallibleResult = Result<Response<Body>, Infallible>;
+pub type InfallibleResult = Result<Response<Body>, hyper::Error>;
 pub static HTTP_PROC: OnceLock<Pin<Box<dyn HttpMethod>>> = OnceLock::new();
 
 pub fn flag_forbidden(em: &str) -> InfallibleResult {
-    self::flag(
+    flag(
         hyper::StatusCode::FORBIDDEN,
-        ErrResp::<Empty>::v2(None, &Timestamp::now(), ErrorCode::Unauthorized, em, None),
+        ErrResp::<Empty>::v2(None, &MsgUTCTs::now(), ErrorCode::Unauthorized, em, None),
     )
 }
 
@@ -130,7 +130,7 @@ impl HttpEndpoint {
         error!("Quitting...");
         Err(Mutter::Quit)
     }
-    async fn http_req_proc(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    async fn http_req_proc(req: Request<Body>) -> InfallibleResult {
         if let Some(hp) = HTTP_PROC.get() {
             match req.method() {
                 &Method::GET => hp.get(req),
@@ -184,10 +184,10 @@ impl Headers {
     pub fn from(hm: HeaderMap) -> Headers {
         Headers { headers: hm }
     }
-    pub fn probe(&self, name: &str) -> Option<&str> {
+    pub fn probe(&self, name: &str) -> Option<String> {
         for (key, val) in &self.headers {
             if name == key {
-                return str::from_utf8(val.as_bytes()).ok();
+                return str::from_utf8(val.as_bytes()).map(|s| s.to_owned()).ok();
             }
         }
         None
@@ -290,10 +290,7 @@ impl BodyTrait for Body {
 pub async fn read_body_string(body: Body) -> Result<String, Mutter> {
     match hyper::body::to_bytes(body).await {
         Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
-            Ok(body_str) => {
-                println!("body string {:#?}", body_str);
-                Ok(body_str)
-            }
+            Ok(body_str) => Ok(body_str),
             _ => Err(Mutter::HttpBodyStrUtf8Bad),
         },
         _ => Err(Mutter::HttpBodyReadingError),
@@ -328,16 +325,19 @@ where
         .header("Content-Type", "application/json")
         .header("Cache-Control", "no-store no-cache");
     if let Ok(s) = serde_json::to_string::<T>(&t) {
-        Ok(rb.status(StatusCode::OK).body(Body::from(s)).expect("ok"))
+        Ok(rb
+            .status(hyper::StatusCode::OK)
+            .body(Body::from(s))
+            .expect("ok"))
     } else {
         Ok(rb
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
             .body(Body::from("unexpected json serialization error"))
             .expect("internal server error"))
     }
 }
 
-pub fn flag<T>(hsc: StatusCode, t: T) -> InfallibleResult
+pub fn flag<T>(hsc: hyper::StatusCode, t: T) -> InfallibleResult
 where
     T: serde::Serialize,
 {
@@ -348,7 +348,7 @@ where
         Ok(rb.status(hsc).body(Body::from(s)).expect("ok"))
     } else {
         Ok(rb
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
             .body(Body::from("unexpected json serialization error"))
             .expect("internal server error"))
     }

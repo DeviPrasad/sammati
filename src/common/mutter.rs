@@ -59,6 +59,16 @@ pub enum Mutter {
     InternalServerError = 40022,
     InvalidRequest = 40023,
 
+    BadDetachedContent = 40051,
+    SigningKeyNotFound = 40052,
+    VerificationKeyNotFound = 40053,
+    UnsupportedKeyType = 40054,
+    BadAlgorithmArgument = 40055,
+    BadKeyDesc = 40056,
+    BadRequestArgs = 40057,
+    SignatureVerificationFailed = 40062,
+    InvalidDetachedSignature = 40065,
+
     BadSocket = 40080,
     BadAddrString = 40081,
     DuplicateResponseParameterName = 40082,

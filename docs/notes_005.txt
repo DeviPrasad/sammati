@@ -1,0 +1,55 @@
+
+NIST 800-92 - https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-92.pdf
+Logging Cheat Sheet - https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+
+Derived from the sources mentioned above.
+
+
+Error and Exception Logs
+    Server startup/shutdown errors, exceptions, and warnings.
+    All runtime errors encountered by services and applications.
+
+
+Access Logs
+    Details of incoming requests and responses.
+    Reporting internal states of the application/servives.
+    Assisting non-repudiation controls.
+    Business-specific requirements.
+
+
+The details logged for each event, at minimum, should capture 
+    timestamp
+    event, status, and/or error codes
+    service/command/application name
+    user or system account associated with an event
+    Device used
+        API token
+        source IP address
+        HTTP methods
+        requested URLs
+        Size (in bytes) of requests and responses
+        session id
+        transaction id
+        user agents (web browser, mobile application id)
+        response codes
+
+
+Application operations
+    application startup and shutdown
+    application failures
+    major application configuration changes
+    application transactions
+        OTP serviecs - the sender, recipients and a hash of the OTP.
+        Web servers - URL requested and the type of response provided by the server.
+        Business applications - financial records accessed by users.
+
+
+Security Logs
+    potential security breaches 
+        unauthorized access attempts
+        suspicious activities.
+            failed login attempts
+            IP addresses of attackers, and
+            requests for restricted resources.
+
+

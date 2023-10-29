@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use chrono::{DateTime, FixedOffset, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, LocalResult, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+use serde::de::Error;
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -9,25 +10,26 @@ use std::{
     time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
 };
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct Timestamp {
+#[derive(Debug, Clone)]
+pub struct MsgUTCTs {
+    pub ts: i64,
     pub rep: String,
 }
 
-impl ToString for Timestamp {
+impl ToString for MsgUTCTs {
     fn to_string(&self) -> String {
         self.rep.to_string()
     }
 }
 
-impl FromStr for Timestamp {
+impl FromStr for MsgUTCTs {
     type Err = bool;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Timestamp::from_str(s)
+        MsgUTCTs::from_str(s)
     }
 }
 
-impl Serialize for Timestamp {
+impl Serialize for MsgUTCTs {
     fn serialize<S>(&self, ss: S) -> Result<S::Ok, S::Error>
     where
         S: serde::ser::Serializer,
@@ -38,42 +40,88 @@ impl Serialize for Timestamp {
     }
 }
 
-impl Timestamp {
-    pub fn from_str(s: &str) -> Result<Timestamp, bool> {
-        if let Ok(dt) = DateTime::<FixedOffset>::parse_from_rfc3339(s) {
-            Ok(Timestamp {
+impl MsgUTCTs {
+    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<MsgUTCTs, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(Error::custom)
+    }
+
+    pub fn from_unix_timestamp(ts: i64) -> Result<MsgUTCTs, bool> {
+        match Utc.timestamp_opt(ts, 0) {
+            LocalResult::Single(dt) => Ok(MsgUTCTs {
+                ts: dt.timestamp(),
+                rep: dt.to_rfc3339_opts(SecondsFormat::Millis, false),
+            }),
+            _ => Err(false),
+        }
+    }
+    pub fn from_str(s: &str) -> Result<MsgUTCTs, bool> {
+        if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S.fZ") {
+            Ok(MsgUTCTs {
+                ts: dt.timestamp(),
                 rep: dt.to_string(),
             })
-        } else if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
-            Ok(Timestamp {
-                rep: dt.to_string(),
+        } else if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%SZ") {
+            Ok(MsgUTCTs {
+                ts: dt.timestamp(),
+                rep: dt.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
             })
-        } else if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
-            Ok(Timestamp {
+        } else if let Ok(dt) = DateTime::<FixedOffset>::parse_from_rfc3339(s) {
+            Ok(MsgUTCTs {
+                ts: dt.timestamp(),
                 rep: dt.to_string(),
             })
         } else {
+            log::error!("{:#?}", DateTime::<FixedOffset>::parse_from_rfc3339(s));
             Err(false)
         }
     }
 
-    pub fn now_as_str() -> String {
-        Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false)
-    }
-    pub fn now() -> Self {
-        let _l: NaiveDateTime = Utc::now().naive_local();
-        let _tn: DateTime<chrono_tz::Tz> =
-            chrono_tz::Asia::Kolkata.from_local_datetime(&_l).unwrap();
+    // produces a string of the form "2023-10-07T15:46:26.200+05:30"
+    // 'tz' could be chrono_tz::Asia::Kolkata
+    pub fn now_with_timezone_offset_str(tz: chrono_tz::Tz) -> Self {
+        let _dt_local: DateTime<chrono::Local> = chrono::Local::now();
+        let _ndt_local: NaiveDateTime = _dt_local.naive_local();
+        let _ts_with_tz: DateTime<chrono_tz::Tz> = tz.from_local_datetime(&_ndt_local).unwrap();
         Self {
-            rep: _tn.fixed_offset().to_string(),
+            ts: _ts_with_tz.timestamp(),
+            rep: _ts_with_tz.to_rfc3339_opts(SecondsFormat::Millis, false),
         }
+    }
+
+    // produces a string of the form "2023-10-07T15:46:26.200+05:30"
+    pub fn localtime_with_offset_str() -> Self {
+        let _dt_local: DateTime<chrono::Local> = chrono::Local::now();
+        Self {
+            ts: _dt_local.timestamp(),
+            rep: _dt_local.to_rfc3339_opts(SecondsFormat::Millis, false),
+        }
+    }
+
+    // if 'with_z' is true, produces a string of the form ""2023-10-07T10:25:48.686Z"
+    // if 'with_z' is false, produces a string of the form "2023-10-07T10:25:48.686+00:00"
+    pub fn now_utc_str(with_z: bool) -> Self {
+        let _ndt_local: NaiveDateTime = Utc::now().naive_local();
+        let _utc_tz: DateTime<chrono_tz::Tz> =
+            chrono_tz::UTC.from_local_datetime(&_ndt_local).unwrap();
+        Self {
+            ts: _utc_tz.timestamp(),
+            rep: _utc_tz.to_rfc3339_opts(SecondsFormat::Millis, with_z),
+        }
+    }
+
+    pub fn now() -> Self {
+        Self::now_utc_str(true)
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TimePeriod {
-    pub from: Timestamp,
-    pub to: Timestamp,
+    pub from: MsgUTCTs,
+    pub to: MsgUTCTs,
 }
 
 #[inline]
@@ -157,77 +205,78 @@ impl std::fmt::Display for UnixTimeStamp {
 
 #[cfg(test)]
 mod tests {
-    use crate::ts::Timestamp;
+    use crate::ts::MsgUTCTs;
 
     #[test]
     fn good_timestamp_naive_01() {
-        let ts = Timestamp::from_str("2010-08-15T12:07:53");
+        let ts = MsgUTCTs::from_str("2010-08-15T12:07:53Z");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
-        assert_eq!(s, "2010-08-15 12:07:53");
+        assert_ne!(s, "2010-08-15 12:07:53");
+        assert_eq!(s, "2010-08-15T12:07:53Z");
     }
     #[test]
     fn good_timestamp_naive_02() {
-        let ts = Timestamp::from_str("2011-08-15T12:07:49.153Z");
+        let ts = MsgUTCTs::from_str("2011-08-15T12:07:49.153Z");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
-        assert_eq!(s, "2011-08-15T12:07:49.153+00:00");
+        assert_eq!(s, "2011-08-15 12:07:49.153 +00:00");
     }
     #[test]
     fn good_timestamp_naive_03() {
-        let ts = Timestamp::from_str("2012-08-15T12:07:53.153");
-        assert!(ts.is_ok());
-        let s = ts.unwrap().to_string();
-        assert_eq!(s, "2012-08-15 12:07:53.153");
+        let ts = MsgUTCTs::from_str("2012-08-15T12:07:53.153");
+        assert!(!ts.is_ok());
+        // let s = ts.unwrap().to_string();
+        // assert_eq!(s, "2012-08-15 12:07:53.153");
     }
     #[test]
     fn good_timestamp_naive_04() {
-        let ts = Timestamp::from_str("2013-09-07T15:50:00Z");
+        let ts = MsgUTCTs::from_str("2013-09-07T15:50:00Z");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
-        assert_eq!(s, "2013-09-07T15:50:00+00:00");
+        assert_eq!(s, "2013-09-07T15:50:00Z");
     }
     #[test]
     fn good_timestamp_rfc3339_01() {
-        let ts = Timestamp::from_str("2014-08-15T12:07:53.153Z");
+        let ts = MsgUTCTs::from_str("2014-08-15T12:07:53.153Z");
         // let ts = Timestamp::from_str("");
         // let ts = Timestamp::from_str("2023-08-15T12:07:53.153 +05:30");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
-        assert_eq!(s, "2014-08-15T12:07:53.153+00:00");
+        assert_eq!(s, "2014-08-15 12:07:53.153 +00:00");
     }
     #[test]
     fn good_timestamp_rfc3339_02() {
-        let ts = Timestamp::from_str("2015-08-15T12:07:53Z");
+        let ts = MsgUTCTs::from_str("2015-08-15T12:07:53Z");
         // let ts = Timestamp::from_str("");
         // let ts = Timestamp::from_str("2023-08-15T12:07:53.153 +05:30");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
-        assert_eq!(s, "2015-08-15T12:07:53+00:00");
+        assert_eq!(s, "2015-08-15T12:07:53Z");
     }
     #[test]
     fn good_timestamp_rfc3339_03() {
-        let ts = Timestamp::from_str("2016-03-12T17:56:22+05:30");
+        let ts = MsgUTCTs::from_str("2016-03-12T17:56:22+05:30");
         // let ts = Timestamp::from_str("");
         // let ts = Timestamp::from_str("2023-08-15T12:07:53.153 +05:30");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
-        assert_eq!(s, "2016-03-12T17:56:22+05:30");
+        assert_eq!(s, "2016-03-12 17:56:22 +05:30");
     }
     #[test]
     fn good_timestamp_rfc3339_04() {
-        let ts = Timestamp::from_str("2017-10-15T12:07:53.153+05:30");
+        let ts = MsgUTCTs::from_str("2017-10-15T12:07:53.153+05:30");
         // let ts = Timestamp::from_str("");
         // let ts = Timestamp::from_str("2023-08-15T12:07:53.153 +05:30");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
-        assert_eq!(s, "2017-10-15T12:07:53.153+05:30");
+        assert_eq!(s, "2017-10-15 12:07:53.153 +05:30");
     }
     #[test]
     fn good_timestamp_rfc3339_05() {
-        let ts = Timestamp::from_str("2018-10-15T12:00:00-05:30");
+        let ts = MsgUTCTs::from_str("2018-10-15T12:00:00-05:30");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
-        assert_eq!(s, "2018-10-15T12:00:00-05:30");
+        assert_eq!(s, "2018-10-15 12:00:00 -05:30");
     }
 }

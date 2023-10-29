@@ -3,9 +3,11 @@
 pub mod aa;
 pub mod cfg;
 pub mod choice;
+pub mod ecdhe;
 pub mod fip;
 pub mod fiu;
 pub mod hs;
+pub mod keystore;
 pub mod mutter;
 pub mod ts;
 pub mod types;
@@ -30,7 +32,7 @@ impl CommandlineArgs {
         if let Some(path) = cmd.config {
             Config::from_path_str(&path)
         } else {
-            error!("Error - PKCE configuration discovery parameter is missing.");
+            error!("Error - configuration discovery parameter is missing.");
             Err(Mutter::MissingConfigParameters)
         }
     }

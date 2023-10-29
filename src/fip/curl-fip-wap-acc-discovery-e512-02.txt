@@ -1,0 +1,44 @@
+
+curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/Accounts/discover'\
+    -H 'Accept: application/json'\
+    -H 'Content-Type: application/json'\
+    -H 'x-jws-signature: eyJhbGciOiJFUzUxMiIsImp3ayI6eyJrdHkiOiJFQyIsImFsZyI6IkVTNTEyIiwia2lkIjoiRjgyWWRNNlhLT2I2RXFMQnlDYlNpd0dOMEZmYmYtQURld1lHOGRHQTNfYyIsIngiOiJBQ0lZUFFtYXFYMVpHZGtmTElMSDBNUV9zcS1uWGN4cmdKQWxVSnpZSGZvR3N5dTdPMnpRWG0wZHp0bGlxZTBjNWtSSGhNbVMyYkFyYlQ2MmhOZzJMZUw2IiwieSI6IkFIa3p5cUR3bFhVRWx3cWYyNVpRdGdvcFNtUWZYbGZDbk90d2lVRmdyUXNmc0JaNzRMYzk5U1BMT0g4cGRFUzdxZkRMRFBxaU15bmFSVjF3X1hScWhsZ1MiLCJjcnYiOiJQLTUyMSJ9LCJraWQiOiJGODJZZE02WEtPYjZFcUxCeUNiU2l3R04wRmZiZi1BRGV3WUc4ZEdBM19jIn0..ADfJ4J9ctKLJFl5ICr-OdcSgL9QFnqsYNqa_6Spo6tcuOiyUjv2HiIAEdW9f3axYCMTjvYujOtQOmt7-ws6CNPlJAE5NlArDJLthDC7heek_FEBFE6WsC_T-YJTv24PN1B_KlcOvepbemeB7CLYIRvT9mpmBAKWFcwafs4RxtHco1DN0'\
+    -H 'x-sammati-api-key: b351804dfcdc5fd1aed0263f775f'\
+    -d '{"ver":"2.0.0","timestamp":"2023-10-10T22:23:01.104Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"sammati.in/aa/uid/62415273490451973263","Identifiers":[{"category":"STRONG","type":"AADHAAR","value":"150739051932"},{"category":"STRONG","type":"MOBILE","value":"6241527349"}]},"FITypes":["DEPOSIT","EDUCATION_LOAN","HOME_LOAN"]}'
+
+#
+# this is the formatted payload
+#
+curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/Accounts/discover'\
+    -H 'Accept: application/json'\
+    -H 'Content-Type: application/json'\
+    -H 'x-jws-signature: eyJhbGciOiJFUzUxMiIsImp3ayI6eyJrdHkiOiJFQyIsImFsZyI6IkVTNTEyIiwia2lkIjoiRjgyWWRNNlhLT2I2RXFMQnlDYlNpd0dOMEZmYmYtQURld1lHOGRHQTNfYyIsIngiOiJBQ0lZUFFtYXFYMVpHZGtmTElMSDBNUV9zcS1uWGN4cmdKQWxVSnpZSGZvR3N5dTdPMnpRWG0wZHp0bGlxZTBjNWtSSGhNbVMyYkFyYlQ2MmhOZzJMZUw2IiwieSI6IkFIa3p5cUR3bFhVRWx3cWYyNVpRdGdvcFNtUWZYbGZDbk90d2lVRmdyUXNmc0JaNzRMYzk5U1BMT0g4cGRFUzdxZkRMRFBxaU15bmFSVjF3X1hScWhsZ1MiLCJjcnYiOiJQLTUyMSJ9LCJraWQiOiJGODJZZE02WEtPYjZFcUxCeUNiU2l3R04wRmZiZi1BRGV3WUc4ZEdBM19jIn0.ADfJ4J9ctKLJFl5ICr-OdcSgL9QFnqsYNqa_6Spo6tcuOiyUjv2HiIAEdW9f3axYCMTjvYujOtQOmt7-ws6CNPlJAE5NlArDJLthDC7heek_FEBFE6WsC_T-YJTv24PN1B_KlcOvepbemeB7CLYIRvT9mpmBAKWFcwafs4RxtHco1DN0'\
+    -H 'x-sammati-api-key: b351804dfcdc5fd1aed0263f775f'\
+    -d '{
+        "ver": "2.0.0",
+        "timestamp": "2023-10-10T22:23:01.104Z",
+        "txnid": "f35761ac-4a18-11e8-96ff-0277a9fbfedc",
+        "Customer": {
+            "id": "sammati.in/aa/uid/62415273490451973263",
+            "Identifiers": [
+                {
+                    "category": "STRONG",
+                    "type": "AADHAAR",
+                    "value": "150739051932"
+                },
+                {
+                    "category": "STRONG",
+                    "type": "MOBILE",
+                    "value": "6241527349"
+                }
+            ]
+        },
+        "FITypes": [
+            "DEPOSIT",
+            "EDUCATION_LOAN",
+            "HOME_LOAN"
+        ]
+    }'
+
+
+

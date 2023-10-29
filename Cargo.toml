@@ -9,17 +9,65 @@ version = "0.0.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name="top"
+path="src/main.rs"
+
+[[bin]]
+name = "fip_wap"
+path = "src/fip/wap/fipwap.rs"
+
+[[bin]]
+name = "fip_srv"
+path = "src/fip/srv/fipsrv.rs"
+
+[[bin]]
+name = "aa_wap"
+path = "src/aa/wap/aawap.rs"
+
+[[bin]]
+name = "aa_srv"
+path = "src/aa/srv/aasrv.rs"
+
+[[bin]]
+name = "fiu_wap"
+path = "src/fiu/wap/fiuwap.rs"
+
+[[bin]]
+name = "fiu_srv"
+path = "src/fiu/srv/fiusrv.rs"
+
+[lib]
+name = "common"
+path = "src/common/lib.rs"
+
 # last updated on 16-august-2023, Thursday
 [dependencies]
+aes-gcm = { version = "^0.10" }
+async-trait = { version = "0.1" }
+boring = { version = "^3" }
 bytes = { version = "1", features = ["serde"] }
-chrono = { version = "0.*", features = ["clock", "serde"]}
-### chrono feature: "std - interoperation with standard library types and traits."
+# chacha20poly1305 = { version = "^0.10" }
+chrono = { version = "0", features = ["clock", "serde", "std"]}
+chrono-tz = { version = "0" }
+clap = { version = "4", features = ["default", "derive"] }
 data-encoding = { version = "2" }
-#ed25519-dalek = { version = "2" }
-serde = { version = "1", features = ["derive"] }
+dull = { path = "../../dull/jwtse/rust/dull", package = "dull" }
+ed25519-dalek = { version = "^2.0", features = ["alloc", "asm", "digest", "pem", "pkcs8", "std"] }
+env_logger = { version = "0" }
+hkdf = { version = "^0" }
+hyper = { version = "0", features = ["http1", "http2", "server", "tcp", "runtime", "stream"] }
+log = { version = "0" }
+rand_core = { version = "0.6" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1" }
+sha2 = {version = "0.10.8" }
+tokio = { version = "1.32", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
 #url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = [ "v4"] }
-#x25519-dalek = { version = "2" }
-#zeroize = { version = "1" }
+x25519-dalek = { version = "^2.0", features = ["static_secrets"] }
 
 [dev-dependencies]
+
+[profile.dev]
+opt-level = 1
