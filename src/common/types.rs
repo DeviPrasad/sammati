@@ -20,6 +20,9 @@ use std::fmt::{Debug, Write as _};
 use std::str::FromStr;
 use uuid::Uuid;
 
+#[derive(Clone, Debug)]
+pub struct ValidationError(pub hyper::StatusCode, pub ErrorCode, pub String);
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServiceHealthStatus {
     UP,

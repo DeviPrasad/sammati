@@ -12,7 +12,7 @@ use common::{
     hs::{self, BodyTrait, Headers, HttpEndpoint, HttpMethod, InfallibleResult, HTTP_PROC},
     mutter::{self, Mutter},
     ts::MsgUTCTs,
-    types::{ErrResp, ErrorCode, ServiceHealthStatus},
+    types::{ErrResp, ErrorCode, ServiceHealthStatus, ValidationError},
     CommandlineArgs,
 };
 
@@ -27,20 +27,19 @@ pub static JWS: OnceLock<Pin<Box<dyn dull::jws::JwsDetachedSigVerifier>>> =
 pub static _NICKEL_KEY_STORE_: OnceLock<dull::nickel::NickelKeyStore> =
     OnceLock::<dull::nickel::NickelKeyStore>::new();
 
+pub static BAD_CONTENT_TYPE: &'static str = "content-type value must be application/json";
+pub static MISSING_CONTENT_TYPE: &'static str = "missing content-type header parameter";
+pub static JWS_KEYSTORE_ACCESS: &'static str = "JWS keystore access error";
+pub static INVALID_DETACHED_SIG: &'static str = "Invalid detached signature";
+pub static MISSING_DETACHED_SIG: &'static str = "Signature missing - cannot authenticate request";
+pub static ERROR_READING_HTTP_BODY: &'static str = "Error in reading body content";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Kube {
     pid: String,
     tid: String,
     url: String,
     cid: u32,
-}
-
-pub fn read_body_sync(body: Body) -> Result<String, Mutter> {
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            return hs::read_body_string(body).await;
-        })
-    })
 }
 
 impl Default for Kube {
@@ -78,132 +77,158 @@ impl HttpMethod for HttpReqProc {
     fn post(&self, req: Request<Body>) -> InfallibleResult {
         log::info!("FIP App Proxy - HttpMethod::HttpPost");
         let (head, body) = req.into_parts();
-        let res_body = body.payload(Body::POST_REQUEST_PAYLOAD_SIZE_MAX);
-        if res_body.is_err() {
-            return flag_payload_too_large(
-                ErrorCode::PayloadTooLarge,
-                &format!(
-                    "Max permitted size of the payload is {} bytes",
-                    Body::POST_REQUEST_PAYLOAD_SIZE_MAX
-                ),
-            );
-        }
-        let rb = read_body_sync(body);
-        if let Err(e) = rb {
-            log::error!("Bad account discovery request: {:#?}", e);
-            return flag_incomplete_content(
-                ErrorCode::ErrorReadingRequestBody,
-                "Error in reading body content",
-            );
-        }
-        let body_json = rb.unwrap();
-        log::info!(
-            "FIP App Proxy - HttpMethod::HttpPost::proc {:#?} {:#?}",
-            head,
-            body_json.len()
-        );
         let (uri, hp) = (head.uri.clone(), Headers::from(head.headers));
-        match hp.probe("Content-Type") {
-            Some(ct) => {
-                if !ct.eq_ignore_ascii_case("application/json") {
-                    return flag_error(
-                        hyper::StatusCode::BAD_REQUEST,
-                        ErrorCode::InvalidRequest,
-                        "content-type value must be application/json",
-                    );
+        match check_content_type(&hp) {
+            // 'content-type' must be 'application/json'
+            Ok(_) => match unpack_body(body) {
+                // json payload size is well within limits
+                Ok(body_json) => match authenticate_rquest(&hp, &body_json) {
+                    // authentic request, and so dispatch it
+                    Ok(_) => dispatch(&uri, &hp, &body_json),
+                    Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
+                },
+                Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
+            },
+            Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
+        }
+    }
+}
+
+fn unpack_body(body: Body) -> Result<String, ValidationError> {
+    match body.payload(Body::POST_REQUEST_PAYLOAD_SIZE_MAX) {
+        Ok(_) => hs::read_body_sync(body).map_err(|_| {
+            ValidationError(
+                hyper::StatusCode::BAD_REQUEST,
+                ErrorCode::ErrorReadingRequestBody,
+                ERROR_READING_HTTP_BODY.to_owned(),
+            )
+        }),
+        _ => Err(ValidationError(
+            hyper::StatusCode::PAYLOAD_TOO_LARGE,
+            ErrorCode::PayloadTooLarge,
+            format!(
+                "Max permitted size of the payload is {} bytes",
+                Body::POST_REQUEST_PAYLOAD_SIZE_MAX
+            ),
+        )),
+    }
+}
+
+fn dispatch(uri: &hyper::Uri, head: &Headers, body_json: &String) -> InfallibleResult {
+    log::info!(
+        "FIP App Proxy - HttpMethod::HttpPost::proc {:#?} {:#?}",
+        head,
+        body_json.len()
+    );
+    match uri.path() {
+        "/Accounts/discover" => {
+            log::info!("FIP POST /Accounts/discover");
+            return match serde_json::from_str::<fip::AccDiscoveryReq>(&body_json) {
+                Ok(adr) => {
+                    log::info!("{:#?}", adr);
+                    hs::answer(Some(fip::AccDiscoveryResp::v2(&adr.tx_id, &Vec::new())))
                 }
-            }
-            _ => {
-                return flag_error(
+                _ => flag_invalid_content(
+                    ErrorCode::InvalidRequest,
+                    "Account Discovery request is not well-formed",
+                ),
+            };
+        }
+        "/Accounts/link" => {
+            log::info!("FIP POST /Accounts/link");
+            flag_unimplemented("/Accounts/link")
+        }
+        "/Accounts/delink" => {
+            log::info!("FIP POST /Accounts/delink");
+            flag_unimplemented("/Accounts/delink")
+        }
+        "/Accounts/link/verify" => {
+            log::info!("FIP POST /Accounts/link/verify");
+            flag_unimplemented("/Accounts/link/verify")
+        }
+        "/FI/request" => {
+            log::info!("FIP POST /FI/request");
+            flag_unimplemented("/FI/request")
+        }
+        "/FI/fetch" => {
+            log::info!("FIP POST /FI/fetch");
+            flag_unimplemented("/FI/fetch")
+        }
+        "/Consent/Notification" => {
+            log::info!("FIP POST /Consent/Notification");
+            flag_unimplemented("/Consent/Notification")
+        }
+        "/Consent" => {
+            log::info!("FIP POST /Consent");
+            flag_unimplemented("/Consent")
+        }
+        _ => {
+            log::error!("FIP unsupported request {}", uri.path());
+            flag_unrecognized(uri.path())
+        }
+    }
+}
+
+fn check_content_type(hp: &Headers) -> Result<(), ValidationError> {
+    match hp.probe("Content-Type") {
+        Some(ct) => {
+            if ct.eq_ignore_ascii_case("application/json") {
+                Ok(())
+            } else {
+                Err(ValidationError(
                     hyper::StatusCode::BAD_REQUEST,
                     ErrorCode::InvalidRequest,
-                    "missing content-type header parameter",
-                )
+                    BAD_CONTENT_TYPE.to_owned(),
+                ))
             }
         }
-        let _dpop = hp.probe("DPoP");
-        let _sammati_api_key = hp.probe("x-sammati-api-key");
-        let x_jws_sig = hp.probe("x-jws-signature");
+        _ => Err(ValidationError(
+            hyper::StatusCode::BAD_REQUEST,
+            ErrorCode::InvalidRequest,
+            MISSING_CONTENT_TYPE.to_owned(),
+        )),
+    }
+}
 
-        if let Some(ds) = x_jws_sig {
-            //let djv = JWS.get().unwrap();
-            match JWS.get() {
-                Some(djv) => {
-                    if let Err(e) =
-                        djv.verify(&DetachedSig::from(&ds.as_bytes()), &body_json.as_bytes())
-                    {
-                        log::error!("Message signature verification failed");
-                        return flag_error(
-                            hyper::StatusCode::UNAUTHORIZED,
-                            match e {
-                                Grumble::Base64EncodingBad => ErrorCode::InvalidBase64Encoding,
-                                Grumble::BadDetachedSignature => {
-                                    ErrorCode::InvalidDetachedSignature
-                                }
-                                _ => ErrorCode::SignatureDoesNotMatch,
-                            },
-                            "Invalid detached signature",
-                        );
-                    }
-                }
-                _ => return flag_internal_error("JWS keystore access error"),
-            }
-        } else {
-            log::error!("Signature missing - cannot authenticate request");
-            return flag_error(
-                hyper::StatusCode::FORBIDDEN,
-                ErrorCode::Unauthorized,
-                "Signature missing - cannot authenticate request",
-            );
-        }
+fn authenticate_rquest(hp: &Headers, body_json: &String) -> Result<(), ValidationError> {
+    let _dpop = hp.probe("DPoP");
+    let api_key = hp.probe("x-sammati-api-key");
+    let x_jws_sig = hp.probe("x-jws-signature");
 
-        match uri.path() {
-            "/Accounts/discover" => {
-                log::info!("FIP POST /Accounts/discover");
-                return match serde_json::from_str::<fip::AccDiscoveryReq>(&body_json) {
-                    Ok(adr) => {
-                        log::info!("{:#?}", adr);
-                        hs::answer(Some(fip::AccDiscoveryResp::v2(&adr.tx_id, &Vec::new())))
-                    }
-                    _ => flag_invalid_content(
-                        ErrorCode::InvalidRequest,
-                        "Account Discovery request is not well-formed",
-                    ),
-                };
-            }
-            "/Accounts/link" => {
-                log::info!("FIP POST /Accounts/link");
-                flag_unimplemented("/Accounts/link")
-            }
-            "/Accounts/delink" => {
-                log::info!("FIP POST /Accounts/delink");
-                flag_unimplemented("/Accounts/delink")
-            }
-            "/Accounts/link/verify" => {
-                log::info!("FIP POST /Accounts/link/verify");
-                flag_unimplemented("/Accounts/link/verify")
-            }
-            "/FI/request" => {
-                log::info!("FIP POST /FI/request");
-                flag_unimplemented("/FI/request")
-            }
-            "/FI/fetch" => {
-                log::info!("FIP POST /FI/fetch");
-                flag_unimplemented("/FI/fetch")
-            }
-            "/Consent/Notification" => {
-                log::info!("FIP POST /Consent/Notification");
-                flag_unimplemented("/Consent/Notification")
-            }
-            "/Consent" => {
-                log::info!("FIP POST /Consent");
-                flag_unimplemented("/Consent")
-            }
-            _ => {
-                log::error!("FIP unsupported request {}", uri.path());
-                flag_unrecognized(uri.path())
-            }
+    // check if api_key looks ok
+    if api_key.is_none() || api_key.as_ref().is_some_and(|s| s.len() < 16) {
+        Err(ValidationError(
+            hyper::StatusCode::UNAUTHORIZED,
+            ErrorCode::Unauthorized,
+            "Bad API Key".to_owned(),
+        ))
+    } else if let Some(ds) = x_jws_sig {
+        // validate the detached signature and the content payload.
+        match JWS.get() {
+            Some(djv) => djv
+                .verify(&DetachedSig::from(&ds.as_bytes()), &body_json.as_bytes())
+                .map(|_| ())
+                .map_err(|e| {
+                    log::error!("Message signature verification failed");
+                    ValidationError(
+                        hyper::StatusCode::UNAUTHORIZED,
+                        match e {
+                            Grumble::Base64EncodingBad => ErrorCode::InvalidBase64Encoding,
+                            Grumble::BadDetachedSignature => ErrorCode::InvalidDetachedSignature,
+                            _ => ErrorCode::SignatureDoesNotMatch,
+                        },
+                        INVALID_DETACHED_SIG.to_owned(),
+                    )
+                }),
+            _ => Err(internal_error(JWS_KEYSTORE_ACCESS)),
         }
+    } else {
+        log::error!("Signature missing - cannot authenticate request");
+        Err(ValidationError(
+            hyper::StatusCode::FORBIDDEN,
+            ErrorCode::Unauthorized,
+            MISSING_DETACHED_SIG.to_owned(),
+        ))
     }
 }
 
@@ -263,6 +288,14 @@ fn answer_health_ok() -> InfallibleResult {
         ServiceHealthStatus::UP,
         Some(Kube::default()),
     ))
+}
+
+fn internal_error(p: &str) -> ValidationError {
+    ValidationError(
+        hyper::StatusCode::INTERNAL_SERVER_ERROR,
+        ErrorCode::InternalError,
+        ("Unrecoverable internal error (".to_string() + p + ")").to_owned(),
+    )
 }
 
 fn flag_internal_error(p: &str) -> InfallibleResult {

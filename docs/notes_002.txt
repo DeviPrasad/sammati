@@ -1,7 +1,7 @@
 Authenticated Encryption with Associated Data (AEAD)
 
-An Interface and Algorithms for Authenticated Encryption
+# An Interface and Algorithms for Authenticated Encryption
 https://datatracker.ietf.org/doc/html/rfc5116
 
-Benefits
+
 

@@ -297,6 +297,14 @@ pub async fn read_body_string(body: Body) -> Result<String, Mutter> {
     }
 }
 
+pub fn read_body_sync(body: Body) -> Result<String, Mutter> {
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            return read_body_string(body).await;
+        })
+    })
+}
+
 #[derive(Clone, Debug)]
 pub enum RespCode {
     Ok = 200,
