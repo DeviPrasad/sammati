@@ -82,6 +82,9 @@ pub enum Mutter {
     HttpBodyStrUtf8Bad = 40092,
     HttpBodyReadingError = 40093,
     BadHttpBodyForGetRequest = 40094,
+
+    InvalidTxId = 40030,
+    InvalidConsentId = 40032,
 }
 
 impl Mutter {
@@ -102,6 +105,8 @@ impl Mutter {
             Mutter::UnknownPostRequest => "UnknownPostRequest",
             Mutter::UnknownDeleteRequest => "UnknownDeleteRequest",
             Mutter::UnknownPutRequest => "UnknownPutRequest",
+            Mutter::InvalidTxId => "InvalidTxId",
+            Mutter::InvalidConsentId => "InvalidConsentId",
             _ => "Unspecified error",
         };
         s.to_string()
@@ -118,6 +123,8 @@ impl fmt::Display for Mutter {
             Mutter::None => "Operation successful",
             Mutter::NotImplemented => "Not implemented",
             Mutter::UnsupportedHttpMethod => "Unsupported Http Method",
+            Mutter::InvalidTxId => "Invalid TxId",
+            Mutter::InvalidConsentId => "Invalid ConsentId",
             _ => "Unspecified error",
         };
         write!(f, "{:?}", s)

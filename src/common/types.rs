@@ -14,6 +14,8 @@ use crate::ts::{ConsentUtc, UtcTs};
 ///
 use bytes::Bytes;
 use data_encoding::BASE64_NOPAD;
+use dull::hex;
+use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fmt::{Debug, Write as _};
@@ -565,6 +567,7 @@ pub struct ConsentHandle {
     pub val: String,
 }
 
+// consentId is a 128-bit number, represented as 32 hex chars.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConsentId {
     pub val: String,
@@ -575,7 +578,12 @@ impl ConsentId {
     where
         D: serde::Deserializer<'de>,
     {
-        String::deserialize(d).map(|id| ConsentId { val: id.to_owned() })
+        let s = String::deserialize(d)?;
+        if s.len() == 32 && <Vec<u8> as hex::Hex>::from_hex(&s).is_some() {
+            Ok(ConsentId { val: s.to_owned() })
+        } else {
+            Err(crate::mutter::Mutter::InvalidConsentId).map_err(D::Error::custom)
+        }
     }
 }
 
