@@ -578,12 +578,15 @@ impl ConsentId {
     where
         D: serde::Deserializer<'de>,
     {
-        let s = String::deserialize(d)?;
-        if s.len() == 32 && <Vec<u8> as hex::Hex>::from_hex(&s).is_some() {
-            Ok(ConsentId { val: s.to_owned() })
-        } else {
-            Err(crate::mutter::Mutter::InvalidConsentId).map_err(D::Error::custom)
+        let cs = String::deserialize(d)?;
+        if let Some(s) = <Vec<u8> as hex::Hex>::from_hex(&cs) {
+            if cs.to_ascii_uppercase() == cs && cs.len() == 32 {
+                return Ok(ConsentId { val: cs });
+            } else {
+                log::error!("{cs} {s:#?} {:#?}", cs.to_ascii_uppercase())
+            }
         }
+        Err(crate::mutter::Mutter::InvalidConsentId).map_err(D::Error::custom)
     }
 }
 
