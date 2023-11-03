@@ -11,7 +11,7 @@ use common::{
     fip,
     hs::{self, BodyTrait, Headers, HttpEndpoint, HttpMethod, InfallibleResult, HTTP_PROC},
     mutter::{self, Mutter},
-    ts::MsgUTCTs,
+    ts::UtcTs,
     types::{ErrResp, ErrorCode, ServiceHealthStatus, ValidationError},
     CommandlineArgs,
 };
@@ -61,7 +61,7 @@ impl HttpMethod for HttpReqProc {
     fn get(&self, req: Request<Body>) -> InfallibleResult {
         log::info!("FIP App Proxy - HttpMethod::HttpPost::proc {:#?}", req);
         let (head, body) = req.into_parts();
-        match body.payload(0) {
+        match body.size_ok(0) {
             Ok(_) => {
                 let (uri, _headers) = (head.uri.clone(), Headers::from(head.headers));
                 match uri.path() {
@@ -78,15 +78,11 @@ impl HttpMethod for HttpReqProc {
         log::info!("FIP App Proxy - HttpMethod::HttpPost");
         let (head, body) = req.into_parts();
         let (uri, hp) = (head.uri.clone(), Headers::from(head.headers));
-        match check_content_type(&hp) {
-            // 'content-type' must be 'application/json'
+
+        // 'content-type' must be 'application/json'
+        match check_content_type_application_json(&hp) {
             Ok(_) => match unpack_body(body) {
-                // json payload size is well within limits
-                Ok(body_json) => match authenticate_rquest(&hp, &body_json) {
-                    // authentic request, and so dispatch it
-                    Ok(_) => dispatch(&uri, &hp, &body_json),
-                    Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
-                },
+                Ok(body_json) => authenticated_dispatch(&uri, &hp, &body_json),
                 Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
             },
             Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
@@ -94,9 +90,20 @@ impl HttpMethod for HttpReqProc {
     }
 }
 
-fn unpack_body(body: Body) -> Result<String, ValidationError> {
-    match body.payload(Body::POST_REQUEST_PAYLOAD_SIZE_MAX) {
-        Ok(_) => hs::read_body_sync(body).map_err(|_| {
+fn __unauthenticated_dispatch__(uri: &hyper::Uri, hp: &Headers, json: &String) -> InfallibleResult {
+    dispatch(&uri, &hp, &json)
+}
+
+fn authenticated_dispatch(uri: &hyper::Uri, hp: &Headers, json: &String) -> InfallibleResult {
+    match authenticate_rquest(&hp, &json) {
+        Ok(_) => dispatch(&uri, &hp, &json),
+        Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
+    }
+}
+
+fn unpack_body(b: Body) -> Result<String, ValidationError> {
+    match b.size_ok(Body::POST_REQUEST_PAYLOAD_SIZE_MAX) {
+        Ok(_) => Body::read(b).map_err(|_| {
             ValidationError(
                 hyper::StatusCode::BAD_REQUEST,
                 ErrorCode::ErrorReadingRequestBody,
@@ -114,16 +121,17 @@ fn unpack_body(body: Body) -> Result<String, ValidationError> {
     }
 }
 
-fn dispatch(uri: &hyper::Uri, head: &Headers, body_json: &String) -> InfallibleResult {
+fn dispatch(uri: &hyper::Uri, head: &Headers, json: &String) -> InfallibleResult {
     log::info!(
         "FIP App Proxy - HttpMethod::HttpPost::proc {:#?} {:#?}",
         head,
-        body_json.len()
+        json
     );
     match uri.path() {
         "/Accounts/discover" => {
             log::info!("FIP POST /Accounts/discover");
-            return match serde_json::from_str::<fip::AccDiscoveryReq>(&body_json) {
+            // return match serde_json::from_str::<fip::AccDiscoveryReq>(&json) {
+            return match fip::Type::from_json::<fip::AccDiscoveryReq>(&json) {
                 Ok(adr) => {
                     log::info!("{:#?}", adr);
                     hs::answer(Some(fip::AccDiscoveryResp::v2(&adr.tx_id, &Vec::new())))
@@ -159,8 +167,21 @@ fn dispatch(uri: &hyper::Uri, head: &Headers, body_json: &String) -> InfallibleR
             flag_unimplemented("/Consent/Notification")
         }
         "/Consent" => {
+            // once the AA obtains a consent artefact, AA shared it with FIP here.
             log::info!("FIP POST /Consent");
-            flag_unimplemented("/Consent")
+            return match fip::Type::from_json::<fip::ConsentArtefactReq>(&json) {
+                Ok(car) => {
+                    log::info!("{:#?}", car);
+                    hs::answer(Some(fip::ConsentArtefactResp::v2(&car.tx_id)))
+                }
+                Err(e) => {
+                    log::error!("{:#?}", e);
+                    flag_invalid_content(
+                        ErrorCode::InvalidRequest,
+                        "Create consent artefact request is not well-formed",
+                    )
+                }
+            };
         }
         _ => {
             log::error!("FIP unsupported request {}", uri.path());
@@ -169,7 +190,7 @@ fn dispatch(uri: &hyper::Uri, head: &Headers, body_json: &String) -> InfallibleR
     }
 }
 
-fn check_content_type(hp: &Headers) -> Result<(), ValidationError> {
+fn check_content_type_application_json(hp: &Headers) -> Result<(), ValidationError> {
     match hp.probe("Content-Type") {
         Some(ct) => {
             if ct.eq_ignore_ascii_case("application/json") {
@@ -284,7 +305,7 @@ async fn main() {
 
 fn answer_health_ok() -> InfallibleResult {
     hs::answer(fip::HealthOkResp::<Kube>::v2(
-        &MsgUTCTs::now(),
+        &UtcTs::now(),
         ServiceHealthStatus::UP,
         Some(Kube::default()),
     ))
@@ -349,7 +370,7 @@ fn flag_incomplete_content(ec: ErrorCode, em: &str) -> InfallibleResult {
 fn flag_error(sc: hyper::StatusCode, ec: ErrorCode, em: &str) -> InfallibleResult {
     hs::flag(
         sc,
-        ErrResp::<Kube>::v2(None, &MsgUTCTs::now(), ec, em, Some(Kube::default())),
+        ErrResp::<Kube>::v2(None, &UtcTs::now(), ec, em, Some(Kube::default())),
     )
 }
 
@@ -397,13 +418,13 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use common::fip::HealthOkResp;
-    use common::ts::MsgUTCTs;
+    use common::ts::UtcTs;
     use common::types::{Empty, ServiceHealthStatus};
 
     #[test]
     fn simple_ok_response() {
         let resp: HealthOkResp<Empty> =
-            HealthOkResp::<Empty>::v2(&MsgUTCTs::now(), ServiceHealthStatus::DOWN, None);
+            HealthOkResp::<Empty>::v2(&UtcTs::now(), ServiceHealthStatus::DOWN, None);
         //eprintln!("simple_ok_response object: {:#?}", resp);
         let json = serde_json::to_string(&resp);
         //eprintln!("simple_ok_response json: {:#?}", json);
@@ -413,7 +434,7 @@ mod tests {
     #[test]
     fn simple_ok_response_round_trip() {
         let serialized_okr = serde_json::to_string(&HealthOkResp::<Empty>::v2(
-            &MsgUTCTs::now(),
+            &UtcTs::now(),
             ServiceHealthStatus::DOWN,
             Some(Empty::default()),
         ));
@@ -447,7 +468,7 @@ mod tests {
             }
         }
         let resp: HealthOkResp<FipNode> = HealthOkResp::<FipNode>::v2(
-            &MsgUTCTs::now(),
+            &UtcTs::now(),
             ServiceHealthStatus::DOWN,
             Some(FipNode::default()),
         );

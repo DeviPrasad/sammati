@@ -1,0 +1,69 @@
+{
+    "consentStart": "2019-05-28T11:38:20.380+0000",
+    "consentExpiry": "2020-05-28T11:38:20.381+0000",
+    "consentMode": "VIEW",
+    "fetchType": "ONETIME",
+    "consentTypes": [
+        "PROFILE",
+        "SUMMARY",
+        "TRANSACTIONS"
+    ],
+    "fiTypes": [
+        "DEPOSIT",
+        "TERM-DEPOSIT"
+    ],
+    "DataConsumer": {
+        "id": "cookiejar-aa@finvu.in",
+        "type": "AA"
+    },
+    "DataProvider": {
+        "id": "BARB0KIMXXX",
+        "type": "FIP"
+    },
+    "Customer": {
+        "id": "demo@finvu"
+    },
+    "Accounts": [
+        {
+            "fiType": "DEPOSIT",
+            "fipId": "BARB0KIMXXX",
+            "accType": "SAVINGS",
+            "linkRefNumber": "UBI485964579",
+            "maskedAccNumber": "UBI85217881279"
+        },
+        {
+            "fiType": "DEPOSIT",
+            "fipId": "BARB0KIMXXX",
+            "accType": "SAVINGS",
+            "linkRefNumber": "UBI4859645",
+            "maskedAccNumber": "UBI852178812"
+        }
+    ],
+    "Purpose": {
+        "code": "101",
+        "refUri": "https://api.rebit.org.in/aa/purpose/101.xml",
+        "text": "Wealth management service",
+        "Category": {
+            "type": "purposeCategoryType"
+        }
+    },
+    "FIDataRange": {
+        "from": "2019-05-28T11:38:20.383+0000",
+        "to": "2020-05-28T11:38:20.381+0000"
+    },
+    "DataLife": {
+        "unit": "MONTH",
+        "value": 4
+    },
+    "Frequency": {
+        "unit": "HOUR",
+        "value": 4
+    },
+    "DataFilter": [
+        {
+            "type": "TRANSACTIONAMOUNT",
+            "operator": ">",
+            "value": "20000"
+        }
+    ]
+}

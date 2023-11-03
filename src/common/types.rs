@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ts::MsgUTCTs;
+use crate::ts::{ConsentUtc, UtcTs};
 ///
 /// changelogs from 1.2.0
 /// https://specifications.rebit.org.in/api_schema/account_aggregator/AA_ChangeLog_2_0_0.txt
@@ -125,28 +125,28 @@ impl ToString for ErrorCode {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UserConsentStatus {
-    Active,
-    Paused,
-    Revoked,
-    Expired,
-    Pending,
-    Rejected,
+    ACTIVE,
+    PAUSED,
+    REVOKED,
+    EXPIRED,
+    PENDING,
+    REJECTED,
 }
 
 impl ToString for UserConsentStatus {
     fn to_string(&self) -> String {
         String::from(match self {
-            UserConsentStatus::Active => "ACTIVE",
-            UserConsentStatus::Pending => "PENDING",
-            UserConsentStatus::Revoked => "REVOKED",
-            UserConsentStatus::Paused => "PAUSED",
-            UserConsentStatus::Rejected => "REJECTED",
-            UserConsentStatus::Expired => "EXPIRED",
+            UserConsentStatus::ACTIVE => "ACTIVE",
+            UserConsentStatus::PAUSED => "PAUSED",
+            UserConsentStatus::REVOKED => "REVOKED",
+            UserConsentStatus::EXPIRED => "EXPIRED",
+            UserConsentStatus::PENDING => "PENDING",
+            UserConsentStatus::REJECTED => "REJECTED",
         })
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UserConsentMode {
     View,
     Store,
@@ -305,6 +305,13 @@ pub enum FIType {
     REIT,
     #[serde(rename = "GSTR1_3B")]
     GSTR1_3B,
+    #[serde(rename = "LIFE_INSURANCE")]
+    LifeInsurance,
+    #[serde(rename = "GENERAL_INSURANCE")]
+    GeneralInsurance,
+    #[serde(rename = "OTHER")]
+    Other,
+
     // sammati
     #[serde(rename = "HOME_LOAN")]
     HomeLoan,
@@ -334,8 +341,6 @@ pub enum FIType {
     EducationLoan,
     #[serde(rename = "BUSINESS_LOAN")]
     BusinessLoan, // repayable in 36 months
-    #[serde(rename = "OTHER")]
-    Other,
 }
 
 /*
@@ -361,6 +366,8 @@ impl ToString for FIType {
             FIType::INVIT => "INVIT",
             FIType::REIT => "REIT",
             FIType::GSTR1_3B => "GSTR1_3B",
+            FIType::LifeInsurance => "LIFE_INSURANCE",
+            FIType::GeneralInsurance => "GENERAL_INSURANCE",
             FIType::HomeLoan => "HOME_LOAN",
             FIType::GoldLoan => "GOLD_LOAN",
             FIType::VehicleLoan => "VEHICLE_LOAN",
@@ -404,7 +411,9 @@ impl FromStr for FIType {
             FIType::INVIT => "INVIT",
             FIType::REIT => "REIT",
             FIType::GSTR1_3B => "GSTR1_3B",
-            FIType::HomeLoan => "HOME_LOAN",
+            "LIFE_INSURANCE" => FIType::LifeInsurance,
+            "GENERAL_INSURANCE" => FIType::GeneralInsurance,
+            "HOME_LOAN" => FIType::HomeLoan,
             FIType::GoldLoan => "GOLD_LOAN",
             FIType::VehicleLoan => "VEHICLE_LOAN",
             FIType::LAFixedDeposit => "LA_FIXED_DEPOSIT",
@@ -561,6 +570,15 @@ pub struct ConsentId {
     pub val: String,
 }
 
+impl ConsentId {
+    pub fn deserialize_from_str<'de, D>(d: D) -> Result<ConsentId, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(d).map(|id| ConsentId { val: id.to_owned() })
+    }
+}
+
 /// (mandatory)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserConsent {
@@ -612,11 +630,12 @@ pub struct FIPId {
 }
 
 // discovered account information.
-// also used in FIP::AccLinkRequest accounts to be linked.
+//  + used in FIP::AccLinkRequest accounts to be linked.
+//  + used in SignedConsentDetail
 // best viewed as a virtualized account descriptor representing a real/concrete FIP account.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPAccDesc {
-    /// type of financial information
+    // type of financial information
     #[serde(rename = "FIType")]
     fi_type: FIType,
     // account Type or Sub FI Type
@@ -629,11 +648,32 @@ pub struct FIPAccDesc {
     masked_acc_num: FIPMaskedAccNum,
 }
 
+// used in SignedConsentDetail::Accounts
+// best viewed as a virtualized account descriptor representing a real/concrete FIP account.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FIPLinkedAccDesc {
+    // type of financial information
+    #[serde(rename = "FIType")]
+    fi_type: FIType,
+    // FIP ID as defined in the Account Aggregator Ecosystem.
+    #[serde(rename = "fipId")]
+    fip_id: FIPId,
+    // account Type or Sub FI Type
+    #[serde(rename = "accType")]
+    acc_type: FinAccType,
+    // unique FIP account reference number linked with the masked account number.
+    #[serde(rename = "linkRefNumber")]
+    acc_link_ref_num: FIPAccLinkRef,
+    #[serde(rename = "maskedAccNumber")]
+    masked_acc_num: FIPMaskedAccNum,
+}
+
 // Unique FIP Account Reference Number which will be usually linked with a masked account number.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPAccLinkRef {
     val: String,
 }
+
 impl FIPAccLinkRef {
     pub fn deser_from_str<'de, D>(d: D) -> Result<FIPAccLinkRef, D::Error>
     where
@@ -699,7 +739,7 @@ pub struct LinkedAccEncData {
 #[derive(Clone, Debug, Serialize)]
 pub struct DHPublicKey {
     // expiration of the public key.
-    expiry: MsgUTCTs,
+    expiry: UtcTs,
     // defines public parameters used to calculate session key (for data encryption and decryption).
     // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH"
     params: Option<SessionCipherParam>,
@@ -910,15 +950,279 @@ pub struct FIPAccOwnerConsentStatus {
     pub status: UserConsentStatus,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignedConsentDetail {
-    pub consent_start: MsgUTCTs,
-    pub consent_exp: MsgUTCTs,
+    // start date-time of the consent. This field would allow for Post-Dated consent.
+    #[serde(
+        rename = "consentStart",
+        deserialize_with = "UtcTs::deserialize_from_str"
+    )]
+    pub consent_start: ConsentUtc,
+    //Expiry date-time for the consent
+    #[serde(
+        rename = "consentExpiry",
+        deserialize_with = "UtcTs::deserialize_from_str"
+    )]
+    pub consent_exp: ConsentUtc,
+
+    // consent mode as defined in the AA tech spec - view/store/query/stream
+    #[serde(rename = "consentMode")]
     pub consent_mode: UserConsentMode,
+
+    // FI Fetch type - ONETIME or PERIODIC
+    #[serde(rename = "fetchType")]
+    pub fetch_type: FetchType,
+
+    // what's the consent for? Fetching FI of PROFILE/SUMMARY/TRANSACTIONS
+    #[serde(rename = "consentTypes")]
+    pub consent_types: Vec<ConsentType>,
+
+    #[serde(rename = "fiTypes")]
+    pub fi_types: Vec<FIType>,
+
+    // entity which receives data.
+    // for a consent between FIP & AA, DataConsumer would be AA.
+    // for a consent between FIU-Application/AA-Application & AA, DataConsumer would be FIU-Client/AA-Client.
+    // { AA_ID, FIU_Client_ID, AA_Client_ID }
+    #[serde(rename = "DataConsumer")]
+    pub data_consumer: DataConsumerIdType,
+
+    // The entity which provides data.
+    // for a consent between FIP & AA, DataProvider would be FIP.
+    // for a consent between FIU-Client/AA-Client & AA, DataProvider would be AA.
+    #[serde(rename = "DataProvider")]
+    pub data_provider: DataProviderIdType,
+
+    /* Identifier of the Customer generated during the registration with AA. */
+    #[serde(rename = "Customer")]
+    pub customer: Customer,
+
+    // List of accounts for which the account holder has already consented.
+    // The 'FIPLinkedAccDesc::fipId' field identifies the FIP.
+    // For a consent between FIU & AA, this list could have accounts from multiple FIP.
+    // For a consent between FIP & AA, only accounts from particular FIP must be present in this section.
+    #[serde(rename = "Accounts")]
+    pub accounts: Vec<FIPLinkedAccDesc>,
+
+    // 	purpose of the consent (Defined in AA Technical Specification)
+    #[serde(rename = "Purpose")]
+    pub purpose: Purpose,
+
+    #[serde(rename = "FIDataRange")]
+    pub fi_data_range: FIPeriod,
+    #[serde(rename = "DataLife")]
+    // how long the FIU/AA Client can store the data
+    pub data_life: DataLife,
+    // frequency of FI data fetch within the defined time unit. E.g.HOURLY,DAILY,MONTHLY,YEARLY.
+    #[serde(rename = "Frequency")]
+    pub frequency: DataFetchFrequency,
+    #[serde(rename = "DataFilter", skip_serializing_if = "Option::is_none")]
+    pub data_filter: Option<DataFilter>,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct ConsentUse {}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FIPeriod {
+    // Date-time from which the financial information is requested
+    #[serde(rename = "from", deserialize_with = "UtcTs::deserialize_from_str")]
+    pub from: UtcTs,
+    // Date-time till which the financial information is requested
+    #[serde(rename = "to", deserialize_with = "UtcTs::deserialize_from_str")]
+    pub to: UtcTs,
+}
+
+// parameters for consent tracking
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Purpose {
+    #[serde(rename = "code")]
+    code: String,
+    // URL where the purpose is further defined
+    #[serde(rename = "refUri", skip_serializing_if = "Option::is_none")]
+    ref_uri: Option<String>,
+    // textual description
+    #[serde(rename = "count", skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    // most recent timestamp when the consent was used
+    #[serde(rename = "Category", skip_serializing_if = "Option::is_none")]
+    category: Option<PurposeCategory>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PurposeCategory {
+    #[serde(rename = "type")]
+    pc_type: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Customer {
+    #[serde(rename = "id")]
+    id: String, /* customer_identifier@AA_identifier */
+}
+
+// The entity which provides data.
+// for a consent between FIP & AA, DataProvider would be FIP.
+// for a consent between FIU-Client/AA-Client & AA, DataProvider would be AA.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DataProviderIdType {
+    #[serde(rename = "id")]
+    provider_id: String, /* Data Provider ID - FIP_ID */
+    #[serde(rename = "type")]
+    provider_type: String, /* 'FIP' */
+}
+
+// entity which receives data.
+// for a consent between FIP & AA, DataConsumer would be AA.
+// for a consent between FIU-Application/AA-Application & AA, DataConsumer would be FIU-Client/AA-Client.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DataConsumerIdType {
+    #[serde(rename = "id")]
+    consumer_id: String, /* Data Consumer ID - AA_ID or FIU_Client_ID or AA_Client_ID */
+    #[serde(rename = "type")]
+    consumer_type: String, /* AA */
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ConsentType {
+    PROFILE,
+    SUMMARY,
+    TRANSACTIONS,
+}
+
+impl ToString for ConsentType {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            ConsentType::PROFILE => "PROFILE",
+            ConsentType::SUMMARY => "SUMMARY",
+            ConsentType::TRANSACTIONS => "TRANSACTIONS",
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum FetchType {
+    ONETIME,
+    PERIODIC,
+}
+
+impl ToString for FetchType {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            FetchType::ONETIME => "ONETIME",
+            FetchType::PERIODIC => "PERIODIC",
+        })
+    }
+}
+
+// rules for filtering FI at FIP
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DataFilter {
+    // filter mode - tx_type or tx_amount
+    #[serde(rename = "type")]
+    filter_type: DataFilterType,
+    #[serde(rename = "operator")]
+    op: RelOp,
+    // Value to filter data
+    #[serde(rename = "value")]
+    val: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum DataFilterType {
+    TRANSACTIONTYPE,
+    TRANSACTIONAMOUNT,
+}
+
+impl ToString for DataFilterType {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            DataFilterType::TRANSACTIONTYPE => "TRANSACTIONTYPE",
+            DataFilterType::TRANSACTIONAMOUNT => "TRANSACTIONAMOUNT",
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum RelOp {
+    EQ,
+    NEQ,
+    GT,
+    LT,
+    GTE,
+    LTE,
+}
+
+impl ToString for RelOp {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            RelOp::EQ => "=",
+            RelOp::NEQ => "!=",
+            RelOp::GT => ">",
+            RelOp::LT => "<",
+            RelOp::GTE => ">=",
+            RelOp::LTE => "<=",
+        })
+    }
+}
+
+// how long the FIU/AA Client can store the data
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum DataLife {
+    DAY,
+    MONTH,
+    YEAR,
+    INF,
+}
+
+impl ToString for DataLife {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            DataLife::DAY => "DAY",
+            DataLife::MONTH => "MONTH",
+            DataLife::YEAR => "YEAR",
+            DataLife::INF => "INF",
+        })
+    }
+}
+
+// frequency of FI data fetch within the defined time unit
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum DataFetchFrequency {
+    HOUR,
+    DAY,
+    MONTH,
+    YEAR,
+}
+
+impl ToString for DataFetchFrequency {
+    fn to_string(&self) -> String {
+        String::from(match self {
+            DataFetchFrequency::HOUR => "HOUR",
+            DataFetchFrequency::DAY => "DAY",
+            DataFetchFrequency::MONTH => "MONTH",
+            DataFetchFrequency::YEAR => "YEAR",
+        })
+    }
+}
+
+pub struct Frequency {
+    pub unit: DataFetchFrequency,
+}
+
+// parameters for consent tracking
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ConsentUse {
+    // logUri can be any valid URI including an email address
+    #[serde(rename = "logUri")]
+    log_uri: String,
+    // number of times the consent has been used
+    #[serde(rename = "count")]
+    count: u64,
+    // most recent timestamp when the consent was used
+    #[serde(
+        rename = "lastUseDateTime",
+        deserialize_with = "UtcTs::deserialize_from_str"
+    )]
+    last_use_timestamp: UtcTs,
+}
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Empty {}
@@ -948,7 +1252,7 @@ impl<T> ErrResp<T>
 where
     T: Default,
 {
-    pub fn v2(tx_id: Option<TxId>, t: &MsgUTCTs, ec: ErrorCode, em: &str, cx: Option<T>) -> Self {
+    pub fn v2(tx_id: Option<TxId>, t: &UtcTs, ec: ErrorCode, em: &str, cx: Option<T>) -> Self {
         ErrResp {
             ver: "2.0.0".to_string(),
             tx_id: match tx_id {

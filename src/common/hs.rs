@@ -19,16 +19,16 @@ use std::{
     sync::OnceLock,
 };
 
-use crate::ts::MsgUTCTs;
+use crate::ts::UtcTs;
 use crate::types::{Empty, ErrResp, ErrorCode};
 
-pub type InfallibleResult = Result<Response<Body>, hyper::Error>;
+pub type InfallibleResult = Result<Response<Body>, Infallible>;
 pub static HTTP_PROC: OnceLock<Pin<Box<dyn HttpMethod>>> = OnceLock::new();
 
 pub fn flag_forbidden(em: &str) -> InfallibleResult {
     flag(
         hyper::StatusCode::FORBIDDEN,
-        ErrResp::<Empty>::v2(None, &MsgUTCTs::now(), ErrorCode::Unauthorized, em, None),
+        ErrResp::<Empty>::v2(None, &UtcTs::now(), ErrorCode::Unauthorized, em, None),
     )
 }
 
@@ -269,12 +269,14 @@ impl Headers {
     }
 }
 
-pub trait BodyTrait {
+pub trait BodyTrait: Sync + Send {
     const POST_REQUEST_PAYLOAD_SIZE_MAX: u64 = (32 * 1024);
-    fn payload(&self, max_size: u64) -> Result<u64, u64>;
+    fn size_ok(&self, max_size: u64) -> Result<u64, u64>;
+    fn read(body: Body) -> Result<String, Mutter>;
 }
+
 impl BodyTrait for Body {
-    fn payload(&self, size_max: u64) -> Result<u64, u64> {
+    fn size_ok(&self, size_max: u64) -> Result<u64, u64> {
         match self.size_hint().upper() {
             Some(v) => {
                 if v <= size_max {
@@ -286,8 +288,16 @@ impl BodyTrait for Body {
             None => Err(size_max + 1),
         }
     }
+
+    fn read(body: Body) -> Result<String, Mutter> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                return read_body_string(body).await;
+            })
+        })
+    }
 }
-pub async fn read_body_string(body: Body) -> Result<String, Mutter> {
+async fn read_body_string(body: Body) -> Result<String, Mutter> {
     match hyper::body::to_bytes(body).await {
         Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
             Ok(body_str) => Ok(body_str),
@@ -295,14 +305,6 @@ pub async fn read_body_string(body: Body) -> Result<String, Mutter> {
         },
         _ => Err(Mutter::HttpBodyReadingError),
     }
-}
-
-pub fn read_body_sync(body: Body) -> Result<String, Mutter> {
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            return read_body_string(body).await;
-        })
-    })
 }
 
 #[derive(Clone, Debug)]

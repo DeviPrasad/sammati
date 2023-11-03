@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ts::MsgUTCTs;
+use crate::ts::UtcTs;
 use crate::types::{Base64EncUuid, FIPAccLinkRef, FIPId, FinInfo, TxId};
 use serde::Serialize;
 
@@ -12,7 +12,7 @@ pub struct FIFetchRequest {
     /// API version = "2.0.0"
     pub ver: String,
     /// creation timestamp of the message
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     /// A session ID is a base64 encoded UUID number.
@@ -29,7 +29,7 @@ pub struct FiFetchResponse {
     /// API version = "2.0.0"
     pub ver: String,
     /// creation timestamp of the message
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     // Account-specific metadata with corresponding encrypted data for accessing the finanical information

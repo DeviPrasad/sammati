@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
-use crate::ts::{MsgUTCTs, TimePeriod};
+use crate::ts::{TimePeriod, UtcTs};
 /// https://api.rebit.org.in/viewSpec/FIP_2_0_0.yaml
 use crate::types::{
-    AccOwnerConsentProof, Base64EncUuid, ConsentId, FIPAccDesc, FIPAccLinkRef, FIPAccLinkReqRefNum,
-    FIPAccLinkToken, FIPAccLinkingAuthType, FIPAccOwner, FIPAccOwnerAccDescriptors,
-    FIPAccOwnerConsentStatus, FIPAccOwnerLinkedAccRef, FIPAccOwnerLinkedAccStatus, FIPId,
-    FIPVerifiedLinkedAccStatus, FIType, FinInfo, KeyMaterial, Notifier, ServiceHealthStatus, TxId,
-    UserConsentStatus,
+    AccOwnerConsentProof, Base64EncUuid, ConsentId, ConsentUse, FIPAccDesc, FIPAccLinkRef,
+    FIPAccLinkReqRefNum, FIPAccLinkToken, FIPAccLinkingAuthType, FIPAccOwner,
+    FIPAccOwnerAccDescriptors, FIPAccOwnerConsentStatus, FIPAccOwnerLinkedAccRef,
+    FIPAccOwnerLinkedAccStatus, FIPId, FIPVerifiedLinkedAccStatus, FIType, FinInfo, KeyMaterial,
+    Notifier, ServiceHealthStatus, TxId, UserConsentStatus,
 };
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -74,11 +74,8 @@ pub struct AccDiscoveryReq {
     #[serde(rename = "ver")]
     pub ver: String,
     /// (required) creation timestamp of the message.
-    #[serde(
-        rename = "timestamp",
-        deserialize_with = "MsgUTCTs::deserialize_from_str"
-    )]
-    pub timestamp: MsgUTCTs,
+    #[serde(rename = "timestamp", deserialize_with = "UtcTs::deserialize_from_str")]
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     #[serde(rename = "txnid", deserialize_with = "TxId::deserialize_from_str")]
     pub tx_id: TxId,
@@ -90,6 +87,15 @@ pub struct AccDiscoveryReq {
     pub fi_types: Vec<FIType>,
 }
 
+pub struct Type {}
+impl Type {
+    pub fn from_json<T: serde::de::DeserializeOwned>(
+        json: &String,
+    ) -> Result<T, serde_json::Error> {
+        serde_json::from_str::<T>(&json)
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct AccDiscoveryResp {
     /// (required) API version = "2.0.0"
@@ -97,7 +103,7 @@ pub struct AccDiscoveryResp {
     pub ver: String,
     /// (required) creation timestamp of the message.
     #[serde(rename = "timestamp", flatten)]
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     #[serde(rename = "uts")]
     pub uts: i64,
     /// unique transaction identifier used for providing end-to-end traceability.
@@ -110,7 +116,7 @@ pub struct AccDiscoveryResp {
 
 impl AccDiscoveryResp {
     pub fn v2(tx_id: &TxId, accounts: &Vec<FIPAccDesc>) -> Self {
-        let t: MsgUTCTs = MsgUTCTs::now();
+        let t: UtcTs = UtcTs::now();
         AccDiscoveryResp {
             ver: "2.0.0".to_string(),
             uts: t.ts,
@@ -126,7 +132,7 @@ pub struct AccLinkReq {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     // customer identifiers including AA id (virtual id/address).
@@ -138,7 +144,7 @@ pub struct AccLinkResp {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     /// the type of authenticator used by FIP - interactive (direct) authentication or Token-based authentication.
@@ -153,7 +159,7 @@ pub struct AccDelinkReq {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     // account holder's AA-identifier, and the linked account's referece number at FIP.
@@ -165,7 +171,7 @@ pub struct AccDelinkResp {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     // account holder's AA-identifier, linked account's referece number at FIP, and its current status.
@@ -180,7 +186,7 @@ pub struct AccMgmtTokenSubmitReq {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     // account holder's AA-identifier, linked account's reference number at FIP, and its current status.
@@ -195,7 +201,7 @@ pub struct AccMgmtTokenSubmitResp {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     pub linked_accounts: Vec<FIPVerifiedLinkedAccStatus>,
@@ -209,7 +215,7 @@ pub struct FIRequest {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     /// consent artefact details.
@@ -224,7 +230,7 @@ pub struct FIResp {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     /// unique id generated by AA after the account holder authorizes the consent request.
@@ -245,7 +251,7 @@ pub struct FIFetchReq {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     /// A session ID is a base64 encoded UUID number.
@@ -264,7 +270,7 @@ pub struct FIFetchResp {
     /// (required) API version = "2.0.0"
     pub ver: String,
     /// (required) creation timestamp of the message.
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub tx_id: TxId,
     /// account-specific metadata and encrypted FI of the account
@@ -277,7 +283,7 @@ struct FIPAccHolderConsentStatusNotification {
     /// (required) API version = 2.0.0
     pub ver: String,
     /// (required) creation timestamp of the message
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub txid: TxId,
     /// (required)
@@ -294,7 +300,7 @@ struct FIPAccHolderConsentNotificationResp {
     /// (required) API version = 2.0.0
     pub ver: String,
     /// (required) creation timestamp of the message
-    pub timestamp: MsgUTCTs,
+    pub timestamp: UtcTs,
     /// unique transaction identifier used for providing end-to-end traceability.
     pub txid: TxId,
     /// response description
@@ -304,17 +310,67 @@ struct FIPAccHolderConsentNotificationResp {
 /// used by the AA to send the consent artefact to the FIP on creation
 /// POST .../Consent
 ///
-#[derive(Clone, Debug, Serialize)]
-struct ConsentArtefactReq {
-    /// (required) API version = 2.0.0
+#[derive(Clone, Debug, Deserialize)]
+pub struct ConsentArtefactReq {
+    // (required) API version = 2.1.0
+    #[serde(rename = "ver")]
     pub ver: String,
-    /// unique transaction identifier used for providing end-to-end traceability.
-    pub txid: TxId,
-    /// consent id is a unique is generated by AA after the account holder authorizes the request.
+    // timestamp of this message
+    #[serde(rename = "timestamp", deserialize_with = "UtcTs::deserialize_from_str")]
+    pub timestamp: UtcTs,
+    // unique transaction identifier used for providing end-to-end traceability.
+    #[serde(rename = "txnid", deserialize_with = "TxId::deserialize_from_str")]
+    pub tx_id: TxId,
+    // unique ID generated by AA after the account holder authorizes the request.
+    #[serde(
+        rename = "consentId",
+        deserialize_with = "ConsentId::deserialize_from_str"
+    )]
     pub consent_id: ConsentId,
+    #[serde(rename = "status")]
     pub status: UserConsentStatus,
-    pub consent_artefact_created_at: MsgUTCTs,
+    // creation time of the Consent Artefact
+    #[serde(
+        rename = "createTimestamp",
+        deserialize_with = "UtcTs::deserialize_from_str"
+    )]
+    pub creation_timestamp: UtcTs,
+    // consent artefact signed using JWS. See SignedConsentDetail model for consent format.
+    #[serde(rename = "signedConsent")]
     pub signed_consent_jws: Bytes,
+    // parameters for consent tracking
+    #[serde(rename = "ConsentUse")]
+    pub consent_use: ConsentUse,
+}
+
+impl ConsentArtefactResp {
+    pub fn v2(tx_id: &TxId) -> Self {
+        let t: UtcTs = UtcTs::now();
+        ConsentArtefactResp {
+            ver: "2.0.0".to_string(),
+            uts: t.ts,
+            timestamp: t.clone(),
+            tx_id: tx_id.clone(),
+            resp: "OK".to_owned(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ConsentArtefactResp {
+    // (required) API version = "2.0.0"
+    #[serde(rename = "ver")]
+    pub ver: String,
+    // unique transaction identifier used for providing end-to-end traceability.
+    #[serde(rename = "txnid", deserialize_with = "TxId::deserialize_from_str")]
+    pub tx_id: TxId,
+    // (required) creation timestamp of the message.
+    #[serde(rename = "timestamp", deserialize_with = "UtcTs::deserialize_from_str")]
+    pub timestamp: UtcTs,
+    #[serde(rename = "uts")]
+    pub uts: i64,
+    #[serde(rename = "response")]
+    pub resp: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -337,7 +393,7 @@ impl<T> HealthOkResp<T>
 where
     T: Default,
 {
-    pub fn v2(ts: &MsgUTCTs, status: ServiceHealthStatus, cx: Option<T>) -> Self {
+    pub fn v2(ts: &UtcTs, status: ServiceHealthStatus, cx: Option<T>) -> Self {
         HealthOkResp {
             ver: "2.0.0".to_string(),
             tx_id: None,

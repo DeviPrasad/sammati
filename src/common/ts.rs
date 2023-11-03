@@ -10,26 +10,28 @@ use std::{
     time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
 };
 
+pub type ConsentUtc = UtcTs;
+
 #[derive(Debug, Clone)]
-pub struct MsgUTCTs {
+pub struct UtcTs {
     pub ts: i64,
     pub rep: String,
 }
 
-impl ToString for MsgUTCTs {
+impl ToString for UtcTs {
     fn to_string(&self) -> String {
         self.rep.to_string()
     }
 }
 
-impl FromStr for MsgUTCTs {
+impl FromStr for UtcTs {
     type Err = bool;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        MsgUTCTs::from_str(s)
+        UtcTs::from_str(s)
     }
 }
 
-impl Serialize for MsgUTCTs {
+impl Serialize for UtcTs {
     fn serialize<S>(&self, ss: S) -> Result<S::Ok, S::Error>
     where
         S: serde::ser::Serializer,
@@ -40,8 +42,8 @@ impl Serialize for MsgUTCTs {
     }
 }
 
-impl MsgUTCTs {
-    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<MsgUTCTs, D::Error>
+impl UtcTs {
+    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<UtcTs, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -49,28 +51,28 @@ impl MsgUTCTs {
         Self::from_str(&s).map_err(Error::custom)
     }
 
-    pub fn from_unix_timestamp(ts: i64) -> Result<MsgUTCTs, bool> {
+    pub fn from_unix_timestamp(ts: i64) -> Result<UtcTs, bool> {
         match Utc.timestamp_opt(ts, 0) {
-            LocalResult::Single(dt) => Ok(MsgUTCTs {
+            LocalResult::Single(dt) => Ok(UtcTs {
                 ts: dt.timestamp(),
                 rep: dt.to_rfc3339_opts(SecondsFormat::Millis, false),
             }),
             _ => Err(false),
         }
     }
-    pub fn from_str(s: &str) -> Result<MsgUTCTs, bool> {
+    pub fn from_str(s: &str) -> Result<UtcTs, bool> {
         if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S.fZ") {
-            Ok(MsgUTCTs {
+            Ok(UtcTs {
                 ts: dt.timestamp(),
                 rep: dt.to_string(),
             })
         } else if let Ok(dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%SZ") {
-            Ok(MsgUTCTs {
+            Ok(UtcTs {
                 ts: dt.timestamp(),
                 rep: dt.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
             })
         } else if let Ok(dt) = DateTime::<FixedOffset>::parse_from_rfc3339(s) {
-            Ok(MsgUTCTs {
+            Ok(UtcTs {
                 ts: dt.timestamp(),
                 rep: dt.to_string(),
             })
@@ -120,8 +122,8 @@ impl MsgUTCTs {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TimePeriod {
-    pub from: MsgUTCTs,
-    pub to: MsgUTCTs,
+    pub from: UtcTs,
+    pub to: UtcTs,
 }
 
 #[inline]
@@ -205,11 +207,11 @@ impl std::fmt::Display for UnixTimeStamp {
 
 #[cfg(test)]
 mod tests {
-    use crate::ts::MsgUTCTs;
+    use crate::ts::UtcTs;
 
     #[test]
     fn good_timestamp_naive_01() {
-        let ts = MsgUTCTs::from_str("2010-08-15T12:07:53Z");
+        let ts = UtcTs::from_str("2010-08-15T12:07:53Z");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
         assert_ne!(s, "2010-08-15 12:07:53");
@@ -217,28 +219,28 @@ mod tests {
     }
     #[test]
     fn good_timestamp_naive_02() {
-        let ts = MsgUTCTs::from_str("2011-08-15T12:07:49.153Z");
+        let ts = UtcTs::from_str("2011-08-15T12:07:49.153Z");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
         assert_eq!(s, "2011-08-15 12:07:49.153 +00:00");
     }
     #[test]
     fn good_timestamp_naive_03() {
-        let ts = MsgUTCTs::from_str("2012-08-15T12:07:53.153");
+        let ts = UtcTs::from_str("2012-08-15T12:07:53.153");
         assert!(!ts.is_ok());
         // let s = ts.unwrap().to_string();
         // assert_eq!(s, "2012-08-15 12:07:53.153");
     }
     #[test]
     fn good_timestamp_naive_04() {
-        let ts = MsgUTCTs::from_str("2013-09-07T15:50:00Z");
+        let ts = UtcTs::from_str("2013-09-07T15:50:00Z");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
         assert_eq!(s, "2013-09-07T15:50:00Z");
     }
     #[test]
     fn good_timestamp_rfc3339_01() {
-        let ts = MsgUTCTs::from_str("2014-08-15T12:07:53.153Z");
+        let ts = UtcTs::from_str("2014-08-15T12:07:53.153Z");
         // let ts = Timestamp::from_str("");
         // let ts = Timestamp::from_str("2023-08-15T12:07:53.153 +05:30");
         assert!(ts.is_ok());
@@ -247,7 +249,7 @@ mod tests {
     }
     #[test]
     fn good_timestamp_rfc3339_02() {
-        let ts = MsgUTCTs::from_str("2015-08-15T12:07:53Z");
+        let ts = UtcTs::from_str("2015-08-15T12:07:53Z");
         // let ts = Timestamp::from_str("");
         // let ts = Timestamp::from_str("2023-08-15T12:07:53.153 +05:30");
         assert!(ts.is_ok());
@@ -256,7 +258,7 @@ mod tests {
     }
     #[test]
     fn good_timestamp_rfc3339_03() {
-        let ts = MsgUTCTs::from_str("2016-03-12T17:56:22+05:30");
+        let ts = UtcTs::from_str("2016-03-12T17:56:22+05:30");
         // let ts = Timestamp::from_str("");
         // let ts = Timestamp::from_str("2023-08-15T12:07:53.153 +05:30");
         assert!(ts.is_ok());
@@ -265,7 +267,7 @@ mod tests {
     }
     #[test]
     fn good_timestamp_rfc3339_04() {
-        let ts = MsgUTCTs::from_str("2017-10-15T12:07:53.153+05:30");
+        let ts = UtcTs::from_str("2017-10-15T12:07:53.153+05:30");
         // let ts = Timestamp::from_str("");
         // let ts = Timestamp::from_str("2023-08-15T12:07:53.153 +05:30");
         assert!(ts.is_ok());
@@ -274,7 +276,7 @@ mod tests {
     }
     #[test]
     fn good_timestamp_rfc3339_05() {
-        let ts = MsgUTCTs::from_str("2018-10-15T12:00:00-05:30");
+        let ts = UtcTs::from_str("2018-10-15T12:00:00-05:30");
         assert!(ts.is_ok());
         let s = ts.unwrap().to_string();
         assert_eq!(s, "2018-10-15 12:00:00 -05:30");
