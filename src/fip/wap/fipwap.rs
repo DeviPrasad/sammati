@@ -281,7 +281,7 @@ async fn main() {
             {
                 let nks = dull::nickel::NickelKeyStore::default();
                 _NICKEL_KEY_STORE_.set(nks).expect("nickel keystore");
-                let _ = JWS.set(Box::pin(dull::jws::JWS::new(
+                let _ = JWS.set(Box::pin(dull::jws::SigVerifier::new(
                     _NICKEL_KEY_STORE_.get().unwrap(),
                 )));
             }
@@ -290,7 +290,7 @@ async fn main() {
                 let mut nks = dull::nickel::NickelKeyStore::default();
                 nickel_cache_init_well_known_sig_keys(&mut nks);
                 _NICKEL_KEY_STORE_.set(nks).expect("nickel keystore");
-                let _ = JWS.set(Box::pin(dull::jws::JWS::new(
+                let _ = JWS.set(Box::pin(dull::jws::SigVerifier::new(
                     _NICKEL_KEY_STORE_.get().unwrap(),
                 )));
             }
@@ -387,6 +387,21 @@ fn nickel_cache_init_well_known_sig_keys(nks: &mut dull::nickel::NickelKeyStore)
     const FIP_WAP_HS512_KEY: &str =
         "x4w7vzRFbvbrZ1IArIKKDgHQ3p6XC7CF5AowbojVCbcQIgexHwefDrYyUw0T43hnWsBJBcj5jD11hPgBHCJXIQ";
     const FIP_WAP_HS256_KEY: &str = "U9DayvJzo8hXTvDpy_psbaRDjcGUukmUR6oFfj7CURPBrPOC3ZL-6cO363dg";
+    const SAMMATI_AA_ES256_PUB_KEY: &[u8] = br#"-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEVs/o5+uQbTjL3chynL4wXgUg2R9
+q9UU8I5mEovUf86QZ7kOBIjJwqnzD1omageEHWwHdBO6B+dFabmdT9POxg==
+-----END PUBLIC KEY-----"#;
+    const _SAMMATI_AA_ES256_PRIVATE_KEY_FYR_: &[u8] = br#"-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgevZzL1gdAFr88hb2
+OF/2NxApJCzGCEDdfSp6VQO30hyhRANCAAQRWz+jn65BtOMvdyHKcvjBeBSDZH2r
+1RTwjmYSi9R/zpBnuQ4EiMnCqfMPWiZqB4QdbAd0E7oH50VpuZ1P087G
+-----END PRIVATE KEY-----"#;
+    const SAMMATI_AA_ES256_PUBKEY_KID_25: &str = "RP4J7WDWoT-JP00a81lOIn-6q1LkscQ-r-IoyWPS-Nk";
+
+    const ED25519_PUB_KEY_PEM_02: &[u8] = br#"-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA+hf401REYXC81NHtQr9PfEQh0SXNE1vng+WRqT8CRvg=
+-----END PUBLIC KEY-----"#;
+    const KID_ED25519_PUBLIC_KEY_02: &str = "KICAgICAgICAgICAgInVuaXQiOiAiTU9OVEgiLA0KIC";
 
     //let mut nks = NickelKeyStore::default();
     {
@@ -394,15 +409,26 @@ fn nickel_cache_init_well_known_sig_keys(nks: &mut dull::nickel::NickelKeyStore)
         let res = ks.add_sig_hmac_key(
             dull::jwa::SignatureAlgorithm::HS512,
             FIP_WAP_HS512_KID_01,
-            FIP_WAP_HS512_KEY.as_bytes(), // "x4w7vzRFbvbrZ1IArIKKDgHQ3p6XC7CF5AowbojVCbcQIgexHwefDrYyUw0T43hnWsBJBcj5jD11hPgBHCJXIQ".as_bytes(),
+            FIP_WAP_HS512_KEY.as_bytes(),
         );
         assert!(res);
         let res = ks.add_sig_hmac_key(
             dull::jwa::SignatureAlgorithm::HS256,
             FIP_WAP_HS256_KID_02,
             // key size is 45 bytes (suitable for HS256; not for HS384, which requires min length of 48 bytes)
-            FIP_WAP_HS256_KEY.as_bytes(), //"U9DayvJzo8hXTvDpy_psbaRDjcGUukmUR6oFfj7CURPBrPOC3ZL-6cO363dg".as_bytes(),
+            FIP_WAP_HS256_KEY.as_bytes(),
         );
+        assert!(res);
+        // add ES256 public key to the cache
+        let res = ks.add_sig_ec_public_key_pem(
+            dull::jwa::SignatureAlgorithm::ES256,
+            SAMMATI_AA_ES256_PUBKEY_KID_25,
+            SAMMATI_AA_ES256_PUB_KEY,
+        );
+        assert!(res);
+        // add Ed25519 public key to the cache
+        let res =
+            ks.add_sig_ed25519_public_key_pem(KID_ED25519_PUBLIC_KEY_02, ED25519_PUB_KEY_PEM_02);
         assert!(res);
     }
 }
