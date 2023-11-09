@@ -122,11 +122,7 @@ fn unpack_body(b: Body) -> Result<String, ValidationError> {
 }
 
 fn dispatch(uri: &hyper::Uri, head: &Headers, json: &String) -> InfallibleResult {
-    log::info!(
-        "FIP App Proxy - HttpMethod::HttpPost::proc {:#?} {:#?}",
-        head,
-        json
-    );
+    log::info!("FIP App Proxy - HttpMethod::HttpPost::proc {head:#?}");
     match uri.path() {
         "/Accounts/discover" => {
             log::info!("FIP POST /Accounts/discover");
@@ -144,7 +140,16 @@ fn dispatch(uri: &hyper::Uri, head: &Headers, json: &String) -> InfallibleResult
         }
         "/Accounts/link" => {
             log::info!("FIP POST /Accounts/link");
-            flag_unimplemented("/Accounts/link")
+            return match fip::Type::from_json::<fip::AccLinkReq>(&json) {
+                Ok(adr) => {
+                    log::info!("{:#?}", adr);
+                    hs::answer(Some(fip::AccDiscoveryResp::v2(&adr.tx_id, &Vec::new())))
+                }
+                _ => flag_invalid_content(
+                    ErrorCode::InvalidRequest,
+                    "Account Discovery request is not well-formed",
+                ),
+            };
         }
         "/Accounts/delink" => {
             log::info!("FIP POST /Accounts/delink");
@@ -228,7 +233,7 @@ fn authenticate_rquest(hp: &Headers, body_json: &String) -> Result<(), Validatio
         match JWS.get() {
             Some(djv) => djv
                 .verify(&DetachedSig::from(&ds.as_bytes()), &body_json.as_bytes())
-                .map(|_| ())
+                .map(|_| log::info!("Message signature verified. Request authenticated."))
                 .map_err(|e| {
                     log::error!("Message signature verification failed");
                     ValidationError(
@@ -244,7 +249,7 @@ fn authenticate_rquest(hp: &Headers, body_json: &String) -> Result<(), Validatio
             _ => Err(internal_error(JWS_KEYSTORE_ACCESS)),
         }
     } else {
-        log::error!("Signature missing - cannot authenticate request");
+        log::error!("Message signature missing - forbidden request");
         Err(ValidationError(
             hyper::StatusCode::FORBIDDEN,
             ErrorCode::Unauthorized,
@@ -398,10 +403,11 @@ OF/2NxApJCzGCEDdfSp6VQO30hyhRANCAAQRWz+jn65BtOMvdyHKcvjBeBSDZH2r
 -----END PRIVATE KEY-----"#;
     const SAMMATI_AA_ES256_PUBKEY_KID_25: &str = "RP4J7WDWoT-JP00a81lOIn-6q1LkscQ-r-IoyWPS-Nk";
 
-    const ED25519_PUB_KEY_PEM_02: &[u8] = br#"-----BEGIN PUBLIC KEY-----
+    const SAMMATI_AA_ED25519_PUB_KEY_PEM_02: &[u8] = br#"-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEA+hf401REYXC81NHtQr9PfEQh0SXNE1vng+WRqT8CRvg=
 -----END PUBLIC KEY-----"#;
-    const KID_ED25519_PUBLIC_KEY_02: &str = "KICAgICAgICAgICAgInVuaXQiOiAiTU9OVEgiLA0KIC";
+    const SAMMATI_AA_KID_ED25519_PUBLIC_KEY_02: &str =
+        "KICAgICAgICAgICAgInVuaXQiOiAiTU9OVEgiLA0KIC";
 
     //let mut nks = NickelKeyStore::default();
     {
@@ -427,8 +433,10 @@ MCowBQYDK2VwAyEA+hf401REYXC81NHtQr9PfEQh0SXNE1vng+WRqT8CRvg=
         );
         assert!(res);
         // add Ed25519 public key to the cache
-        let res =
-            ks.add_sig_ed25519_public_key_pem(KID_ED25519_PUBLIC_KEY_02, ED25519_PUB_KEY_PEM_02);
+        let res = ks.add_sig_ed25519_public_key_pem(
+            SAMMATI_AA_KID_ED25519_PUBLIC_KEY_02,
+            SAMMATI_AA_ED25519_PUB_KEY_PEM_02,
+        );
         assert!(res);
     }
 }
@@ -441,6 +449,11 @@ MCowBQYDK2VwAyEA+hf401REYXC81NHtQr9PfEQh0SXNE1vng+WRqT8CRvg=
 mod tests {
     use std::fmt::Debug;
 
+    use dull::jwa::SignatureAlgorithm;
+    use dull::jws::JWSigner;
+    use dull::jwt::JwsHeaderBuilder;
+    use dull::nickel::NickelKeyStore;
+    use dull::webkey::{KeyDesc, KeyStore};
     use serde::{Deserialize, Serialize};
 
     use common::fip::HealthOkResp;
@@ -476,6 +489,10 @@ mod tests {
         assert_eq!(okr_json_str, serialized_okr_2.unwrap())
     }
 
+    const FIP_WAP_HS512_KID_01: &str = "GRVj3Kqoq2Qe7WLqI0dKSecjMJdcpLOaXVXfwQekkDc";
+    const FIP_WAP_HS512_KEY: &str =
+        "x4w7vzRFbvbrZ1IArIKKDgHQ3p6XC7CF5AowbojVCbcQIgexHwefDrYyUw0T43hnWsBJBcj5jD11hPgBHCJXIQ";
+
     #[test]
     fn simple_ok_response_custom() {
         #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -502,5 +519,92 @@ mod tests {
         let json = serde_json::to_string(&resp);
         eprintln!("simple_ok_response json: {:#?}", json);
         assert!(matches!(json, Ok(_)))
+    }
+
+    #[test]
+    pub fn test_unencoded_sammati_accounts_link_ed25519() {
+        let ed25519_pub_key_pem_02 = br#"-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA+hf401REYXC81NHtQr9PfEQh0SXNE1vng+WRqT8CRvg=
+-----END PUBLIC KEY-----"#;
+        let ed25519_pr_key_pem_02 = br#"-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
+-----END PRIVATE KEY-----"#;
+        let mut nks = NickelKeyStore::default();
+        const KID_ED25519_PUBLIC_KEY_02: &str = "KICAgICAgICAgICAgInVuaXQiOiAiTU9OVEgiLA0KIC";
+        const KID_ED25519_PRIVATE_KEY_02: &[u8] = br#"B7DQogICAgICAgICAgICAgICAgInR5cGUiOiAicHVyc"#;
+        {
+            let ks: &mut dyn KeyStore = &mut nks;
+            let res = ks.add_sig_ed25519_private_key_pem(
+                &String::from_utf8(KID_ED25519_PRIVATE_KEY_02.to_vec()).unwrap(),
+                ed25519_pr_key_pem_02,
+            );
+            assert!(res);
+            let res = ks.add_sig_ed25519_public_key_pem(
+                &String::from_utf8(KID_ED25519_PUBLIC_KEY_02.into()).unwrap(),
+                ed25519_pub_key_pem_02,
+            );
+            assert!(res);
+            let res = ks.add_sig_hmac_key(
+                dull::jwa::SignatureAlgorithm::HS512,
+                FIP_WAP_HS512_KID_01,
+                FIP_WAP_HS512_KEY.as_bytes(),
+            );
+            assert!(res);
+        }
+        let jws = JWSigner::for_nickel(&nks);
+        let accounts_link_req_json = br#"{"ver":"2.1.0","timestamp":"2023-11-10T17:51:18.412Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"sammati.in/aa/uid/62415273490451973263","Accounts":[{"FIType":"DEPOSIT","accType":"SAVINGS","accRefNumber":"NADB0000570926453147364217812345","maskedAccNumber":"XXXXXXXXXXXXX0753468"},{"FIType":"DEPOSIT","accType":"SAVINGS","accRefNumber":"NADB0000570926453147364217812345","maskedAccNumber":"XXXXXXXXXXXXX2853165"}]}}"#;
+        {
+            let kd = KeyDesc::from_alg_kid(
+                SignatureAlgorithm::EdDSA,
+                &String::from_utf8(KID_ED25519_PRIVATE_KEY_02.to_vec()).unwrap(),
+            );
+            let header_ed25519 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::EdDSA)
+                .unencoded()
+                .kid(KID_ED25519_PUBLIC_KEY_02)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+
+            // sign
+            let ds = jws.sign(&kd, &header_ed25519, accounts_link_req_json);
+            // let jws = jws.sign(&kd, &header, consent_req_json);
+            if ds.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_accounts_link_ed25519 - unencoded-jws[1] {:#?}",
+                    ds
+                );
+            }
+            assert!(ds.is_ok());
+            let ds = ds.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_accounts_link_ed25519 - unencoded-jws[2] {:#?}",
+                String::from_utf8(ds.clone()).unwrap()
+            );
+        }
+        {
+            let kd = KeyDesc::from_alg_kid(SignatureAlgorithm::HS512, FIP_WAP_HS512_KID_01);
+            let header_hs512 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::HS512)
+                .unencoded()
+                .kid(FIP_WAP_HS512_KID_01)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+            let jws = jws.sign(&kd, &header_hs512, accounts_link_req_json);
+            // let jws = jws.sign(&kd, &header, consent_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_accounts_link_hs512 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_accounts_link_hs512 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
     }
 }

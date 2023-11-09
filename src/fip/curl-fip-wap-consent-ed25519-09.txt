@@ -31,7 +31,8 @@ curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/Consent'\
 
 
 # JWS protected header
-# SAMMATI_AA_ES256_KID_25
+# SAMMATI_AA_ES256_PUB_KEY
+# SAMMATI_AA_ES256_PUBKEY_KID_25
 {
   "alg": "ES256",
   "b64": false,
