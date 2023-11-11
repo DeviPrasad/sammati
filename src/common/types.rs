@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::hs::Headers;
+use crate::mutter::Mutter;
 use crate::ts::{ConsentUtc, UtcTs};
 //
 // changelogs from 1.2.0
@@ -22,14 +24,129 @@ use std::fmt::{Debug, Write as _};
 use std::str::FromStr;
 use uuid::Uuid;
 
+// An API or HTTP Url of any request or response has an unique path component.
+pub trait Interface {
+    fn path() -> &'static str;
+    fn tx_id(&self) -> String;
+}
+
+// Interface response bears an (http) status code, and is json-encoded.
+pub trait InterfaceResponse {
+    fn code(&self) -> u32;
+    fn json(&self) -> String;
+}
+
+// a request-type in the system must be 'DeserializeOwned' and also be an 'Interface'.
+pub struct Type {}
+impl Type {
+    pub fn from_json<T: serde::de::DeserializeOwned + Interface>(
+        json: &String,
+        hp: &Headers,
+    ) -> Result<T, Box<dyn InterfaceResponse>> {
+        match serde_json::from_str::<T>(&json) {
+            Ok(t) => {
+                let x_tx_id = hp.tx_id();
+                if x_tx_id.is_none() || x_tx_id.is_some_and(|s| s.to_string() == t.tx_id()) {
+                    Ok(t)
+                } else {
+                    Err(Box::new(ErrResp::<Empty>::v2(
+                        None,
+                        &UtcTs::now(),
+                        &ErrorCode::Unauthorized,
+                        &[
+                            "txn_id values in the header parameter and request body do not match (",
+                            T::path(),
+                            ")",
+                        ]
+                        .concat(),
+                        ErrorCode::Unauthorized.to_http_status_code(),
+                        None,
+                    )))
+                }
+            }
+            Err(_e) => {
+                log::error!("Type::from_josn {_e:#?}");
+                Err(Box::new(ErrResp::<Empty>::v2(
+                    None,
+                    &UtcTs::now(),
+                    &ErrorCode::InvalidRequest,
+                    &["Invalid JSON payload in the requst body (", T::path(), ")"].concat(),
+                    ErrorCode::InvalidRequest.to_http_status_code(),
+                    None,
+                )))
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HealthOkResp<T: serde::Serialize> {
+    #[serde(rename = "version")]
+    pub ver: String,
+    #[serde(rename = "txnid", skip_serializing_if = "Option::is_none")]
+    pub tx_id: Option<String>,
+    #[serde(rename = "timestamp")]
+    pub ts: String,
+    #[serde(rename = "Status")]
+    pub status: String,
+    #[serde(rename = "response")]
+    pub resp: String,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub custom: Option<T>,
+}
+
+impl<T> HealthOkResp<T>
+where
+    T: Default + serde::Serialize,
+{
+    pub fn v2(ts: &UtcTs, status: ServiceHealthStatus, cx: Option<T>) -> Self {
+        HealthOkResp {
+            ver: "2.0.0".to_string(),
+            tx_id: None,
+            ts: ts.to_string(),
+            status: status.to_string(),
+            resp: "OK".to_string(),
+            custom: cx,
+        }
+    }
+}
+
+impl<T> Interface for HealthOkResp<T>
+where
+    T: Default + serde::Serialize,
+{
+    fn path() -> &'static str {
+        "/Heartbeat"
+    }
+    fn tx_id(&self) -> String {
+        match &self.tx_id {
+            Some(s) => s.to_owned(),
+            _ => "".to_owned(),
+        }
+    }
+}
+
+impl<T> InterfaceResponse for HealthOkResp<T>
+where
+    T: Default + serde::Serialize,
+{
+    fn code(&self) -> u32 {
+        200 as u32
+    }
+    fn json(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+}
+
 #[derive(Clone, Debug)]
-pub struct ValidationError(pub hyper::StatusCode, pub ErrorCode, pub String);
+pub struct ValidationError(pub ErrorCode, pub String);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServiceHealthStatus {
     UP,
     DOWN,
 }
+
 impl ToString for ServiceHealthStatus {
     fn to_string(&self) -> String {
         String::from(match self {
@@ -38,8 +155,11 @@ impl ToString for ServiceHealthStatus {
         })
     }
 }
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ErrorCode {
+    None,
+    Good,
     InvalidRequest,             // RespCode::BadRequest
     InvalidURI,                 // RespCode::BadRequest
     InvalidSecurity,            // RespCode::BadRequest
@@ -83,6 +203,7 @@ pub enum ErrorCode {
 impl ToString for ErrorCode {
     fn to_string(&self) -> String {
         String::from(match self {
+            ErrorCode::None | ErrorCode::Good => "Successful. No Errors.",
             ErrorCode::InvalidRequest => "InvalidRequest",
             ErrorCode::InvalidURI => "InvalidURI",
             ErrorCode::InvalidSecurity => "InvalidSecurity",
@@ -122,6 +243,27 @@ impl ToString for ErrorCode {
             ErrorCode::InvalidDetachedSignature => "InvalidDetachedSignature",
             ErrorCode::InvalidBase64Encoding => "InvalidBase64Encoding",
         })
+    }
+}
+
+impl ErrorCode {
+    pub fn to_http_status_code(&self) -> u16 {
+        (match self {
+            ErrorCode::Good | ErrorCode::None => hyper::StatusCode::OK,
+            ErrorCode::InvalidRequest | ErrorCode::InvalidURI => hyper::StatusCode::BAD_REQUEST,
+            ErrorCode::Unauthorized
+            | ErrorCode::SignatureDoesNotMatch
+            | ErrorCode::InvalidDetachedSignature => hyper::StatusCode::UNAUTHORIZED,
+            ErrorCode::InvalidSecurity | ErrorCode::InvalidKey => hyper::StatusCode::FORBIDDEN,
+            ErrorCode::InternalError => hyper::StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorCode::InvalidBase64Encoding | ErrorCode::ErrorReadingRequestBody => {
+                hyper::StatusCode::BAD_REQUEST
+            }
+            ErrorCode::PayloadTooLarge => hyper::StatusCode::PAYLOAD_TOO_LARGE,
+            ErrorCode::NotImplemented => hyper::StatusCode::NOT_IMPLEMENTED,
+            _ => hyper::StatusCode::BAD_REQUEST,
+        })
+        .as_u16()
     }
 }
 
@@ -215,36 +357,16 @@ impl ToString for AccountFIStatus {
 // A token may be nonce, or a short-lived one-time password.
 #[derive(Clone, Debug, Serialize)]
 pub enum FIPAccLinkingAuthType {
-    Direct,
-    Token,
-}
-
-impl ToString for FIPAccLinkingAuthType {
-    fn to_string(&self) -> String {
-        String::from(match self {
-            FIPAccLinkingAuthType::Direct => "DIRECT",
-            FIPAccLinkingAuthType::Token => "TOKEN",
-        })
-    }
+    DIRECT,
+    TOKEN,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub enum FIPAccLinkStatus {
-    Linked,
-    Delinked,
-    Pending,
-    Failed,
-}
-
-impl ToString for FIPAccLinkStatus {
-    fn to_string(&self) -> String {
-        String::from(match self {
-            FIPAccLinkStatus::Linked => "LINKED",
-            FIPAccLinkStatus::Delinked => "DELINKED",
-            FIPAccLinkStatus::Pending => "PENDING",
-            FIPAccLinkStatus::Failed => "FAILED",
-        })
-    }
+    LINKED,
+    DELINKED,
+    PENDING,
+    FAILED,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -262,6 +384,16 @@ pub struct FIPAccLinkReqRefNum {
     val: String,
 }
 
+impl FIPAccLinkReqRefNum {
+    pub fn from(s: &str) -> Result<Self, Mutter> {
+        if s.len() >= 16 {
+            Ok(Self { val: s.to_owned() })
+        } else {
+            Err(Mutter::BadArgVal)
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct FIPAccLinkToken {
     val: String,
@@ -270,7 +402,7 @@ pub struct FIPAccLinkToken {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FIType {
     #[serde(rename = "DEPOSIT")]
-    Deposit,
+    DEPOSIT,
     #[serde(rename = "TERM_DEPOSIT")]
     TermDeposit,
     #[serde(rename = "RECURRING_DEPOSIT")]
@@ -282,11 +414,11 @@ pub enum FIType {
     #[serde(rename = "GOVT_SECURITIES")]
     GovtSecurities,
     #[serde(rename = "EQUITIES")]
-    Equities,
+    EQUITIES,
     #[serde(rename = "BONDS")]
-    Bonds,
+    BONDS,
     #[serde(rename = "DEBENTURES")]
-    Debentures,
+    DEBENTURES,
     #[serde(rename = "MUTUAL_FUNDS")]
     MutualFunds,
     #[serde(rename = "ETF")]
@@ -312,7 +444,7 @@ pub enum FIType {
     #[serde(rename = "GENERAL_INSURANCE")]
     GeneralInsurance,
     #[serde(rename = "OTHER")]
-    Other,
+    OTHER,
 
     // sammati
     #[serde(rename = "HOME_LOAN")]
@@ -474,6 +606,17 @@ pub struct TxId {
 impl ToString for TxId {
     fn to_string(&self) -> String {
         self.val.to_owned()
+    }
+}
+
+impl crate::hs::Headers {
+    pub fn tx_id(&self) -> Option<TxId> {
+        let x_tx_id = self.probe("x-tx-id");
+        if let Some(s) = x_tx_id {
+            TxId::from_ascii(&s).ok()
+        } else {
+            None
+        }
     }
 }
 
@@ -1246,6 +1389,14 @@ pub struct ConsentUse {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Empty {}
+impl Interface for Empty {
+    fn path() -> &'static str {
+        "Context::Empty"
+    }
+    fn tx_id(&self) -> String {
+        "".to_owned()
+    }
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ErrResp<T> {
@@ -1266,13 +1417,22 @@ pub struct ErrResp<T> {
     err_msg: String,
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     custom: Option<T>,
+    #[serde(rename = "http_status_code")]
+    hsc: u16,
 }
 
 impl<T> ErrResp<T>
 where
-    T: Default,
+    T: Default + serde::Serialize,
 {
-    pub fn v2(tx_id: Option<TxId>, t: &UtcTs, ec: ErrorCode, em: &str, cx: Option<T>) -> Self {
+    pub fn v2(
+        tx_id: Option<TxId>,
+        t: &UtcTs,
+        ec: &ErrorCode,
+        em: &str,
+        hsc: u16,
+        cx: Option<T>,
+    ) -> Self {
         ErrResp {
             ver: "2.0.0".to_string(),
             tx_id: match tx_id {
@@ -1284,7 +1444,25 @@ where
             err_code: ec.to_string(),
             err_msg: em.to_string(),
             custom: cx,
+            hsc: if hsc >= 200 && hsc < 500 {
+                hsc as u16
+            } else {
+                ec.to_http_status_code() as u16
+            },
         }
+    }
+}
+
+impl<T> InterfaceResponse for ErrResp<T>
+where
+    T: Default + serde::Serialize,
+{
+    fn json(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+
+    fn code(&self) -> u32 {
+        self.hsc as u32
     }
 }
 

@@ -12,7 +12,10 @@ use common::{
     hs::{self, BodyTrait, Headers, HttpEndpoint, HttpMethod, InfallibleResult, HTTP_PROC},
     mutter::{self, Mutter},
     ts::UtcTs,
-    types::{ErrResp, ErrorCode, ServiceHealthStatus, ValidationError},
+    types::{
+        ErrResp, ErrorCode, FIPAccLinkReqRefNum, FIPAccLinkingAuthType, InterfaceResponse, Type,
+        ValidationError,
+    },
     CommandlineArgs,
 };
 
@@ -65,12 +68,12 @@ impl HttpMethod for HttpReqProc {
             Ok(_) => {
                 let (uri, _headers) = (head.uri.clone(), Headers::from(head.headers));
                 match uri.path() {
-                    "/Heartbeat" => answer_health_ok(),
-                    p => flag_unrecognized(p),
+                    "/Heartbeat" => hs::answer_health_ok(),
+                    p => hs::flag(hs::error_unsupported_request(p)),
                 }
             }
             // non-empty body in HTTP GET is considered an error.
-            _ => flag_nonempty_body(),
+            _ => hs::flag(hs::error_nonempty_body()),
         }
     }
 
@@ -82,22 +85,45 @@ impl HttpMethod for HttpReqProc {
         // 'content-type' must be 'application/json'
         match check_content_type_application_json(&hp) {
             Ok(_) => match unpack_body(body) {
-                Ok(body_json) => authenticated_dispatch(&uri, &hp, &body_json),
-                Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
+                Ok(body_json) => match authenticated_dispatch(&uri, &hp, &body_json) {
+                    Ok(good) => hs::answer(good),
+                    Err(bad) => hs::flag(bad),
+                },
+                Err(ValidationError(ec, em)) => {
+                    hs::flag_error_ext(ec.to_http_status_code(), ec, &em)
+                }
             },
-            Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
+            Err(ValidationError(ec, em)) => hs::flag_error_ext(ec.to_http_status_code(), ec, &em),
         }
     }
 }
 
-fn __unauthenticated_dispatch__(uri: &hyper::Uri, hp: &Headers, json: &String) -> InfallibleResult {
+fn __unauthenticated_dispatch__(
+    uri: &hyper::Uri,
+    hp: &Headers,
+    json: &String,
+) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
     dispatch(&uri, &hp, &json)
 }
 
-fn authenticated_dispatch(uri: &hyper::Uri, hp: &Headers, json: &String) -> InfallibleResult {
-    match authenticate_rquest(&hp, &json) {
+fn authenticated_dispatch(
+    uri: &hyper::Uri,
+    hp: &Headers,
+    json: &String,
+) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
+    match authenticate_request(&hp, &json) {
         Ok(_) => dispatch(&uri, &hp, &json),
-        Err(ValidationError(sc, ec, em)) => flag_error(sc, ec, &em),
+        Err(ValidationError(ec, em)) => {
+            // invalid API key, invalid x-jws-signature, invalid dpop
+            Err(Box::new(ErrResp::<Kube>::v2(
+                hp.tx_id(),
+                &UtcTs::now(),
+                &ec,
+                &em,
+                ec.to_http_status_code(),
+                None,
+            )))
+        }
     }
 }
 
@@ -105,13 +131,11 @@ fn unpack_body(b: Body) -> Result<String, ValidationError> {
     match b.size_ok(Body::POST_REQUEST_PAYLOAD_SIZE_MAX) {
         Ok(_) => Body::read(b).map_err(|_| {
             ValidationError(
-                hyper::StatusCode::BAD_REQUEST,
                 ErrorCode::ErrorReadingRequestBody,
                 ERROR_READING_HTTP_BODY.to_owned(),
             )
         }),
         _ => Err(ValidationError(
-            hyper::StatusCode::PAYLOAD_TOO_LARGE,
             ErrorCode::PayloadTooLarge,
             format!(
                 "Max permitted size of the payload is {} bytes",
@@ -121,102 +145,78 @@ fn unpack_body(b: Body) -> Result<String, ValidationError> {
     }
 }
 
-fn dispatch(uri: &hyper::Uri, head: &Headers, json: &String) -> InfallibleResult {
-    log::info!("FIP App Proxy - HttpMethod::HttpPost::proc {head:#?}");
+fn dispatch(
+    uri: &hyper::Uri,
+    hp: &Headers,
+    json: &String,
+) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
+    log::info!("FIP App Proxy - HttpMethod::HttpPost::proc {hp:#?}");
     match uri.path() {
         "/Accounts/discover" => {
             log::info!("FIP POST /Accounts/discover");
-            // return match serde_json::from_str::<fip::AccDiscoveryReq>(&json) {
-            return match fip::Type::from_json::<fip::AccDiscoveryReq>(&json) {
-                Ok(adr) => {
-                    log::info!("{:#?}", adr);
-                    hs::answer(Some(fip::AccDiscoveryResp::v2(&adr.tx_id, &Vec::new())))
-                }
-                _ => flag_invalid_content(
-                    ErrorCode::InvalidRequest,
-                    "Account Discovery request is not well-formed",
-                ),
-            };
+            let adr: fip::AccDiscoveryReq = Type::from_json::<fip::AccDiscoveryReq>(&json, &hp)?;
+            log::info!("{:#?}", adr);
+            Ok(Box::new(fip::AccDiscoveryResp::new(&adr, &Vec::new())))
         }
         "/Accounts/link" => {
             log::info!("FIP POST /Accounts/link");
-            return match fip::Type::from_json::<fip::AccLinkReq>(&json) {
-                Ok(adr) => {
-                    log::info!("{:#?}", adr);
-                    hs::answer(Some(fip::AccDiscoveryResp::v2(&adr.tx_id, &Vec::new())))
-                }
-                _ => flag_invalid_content(
-                    ErrorCode::InvalidRequest,
-                    "Account Discovery request is not well-formed",
-                ),
-            };
+            let alr = Type::from_json::<fip::AccLinkReq>(&json, &hp)?;
+            log::info!("{:#?}", alr);
+            let at: FIPAccLinkingAuthType = FIPAccLinkingAuthType::DIRECT;
+            let acc_ref_num = FIPAccLinkReqRefNum::from("f6b1482e-8f08-11e8-862a-02552b0d3c36")
+                .expect("account link ref number");
+            Ok(Box::new(fip::AccLinkResp::new(&alr, &at, &acc_ref_num)))
         }
         "/Accounts/delink" => {
             log::info!("FIP POST /Accounts/delink");
-            flag_unimplemented("/Accounts/delink")
+            Err(hs::error_unimplemented_request("/Accounts/delink"))
         }
         "/Accounts/link/verify" => {
             log::info!("FIP POST /Accounts/link/verify");
-            flag_unimplemented("/Accounts/link/verify")
+            Err(hs::error_unimplemented_request("/Accounts/link/verify"))
         }
         "/FI/request" => {
             log::info!("FIP POST /FI/request");
-            flag_unimplemented("/FI/request")
+            Err(hs::error_unimplemented_request("/FI/request"))
         }
         "/FI/fetch" => {
             log::info!("FIP POST /FI/fetch");
-            flag_unimplemented("/FI/fetch")
+            Err(hs::error_unimplemented_request("/FI/fetch"))
         }
         "/Consent/Notification" => {
             log::info!("FIP POST /Consent/Notification");
-            flag_unimplemented("/Consent/Notification")
+            Err(hs::error_unimplemented_request("/Consent/Notification"))
         }
         "/Consent" => {
             // once the AA obtains a consent artefact, AA shared it with FIP here.
             log::info!("FIP POST /Consent");
-            return match fip::Type::from_json::<fip::ConsentArtefactReq>(&json) {
-                Ok(car) => {
-                    log::info!("{:#?}", car);
-                    hs::answer(Some(fip::ConsentArtefactResp::v2(&car.tx_id)))
-                }
-                Err(e) => {
-                    log::error!("{:#?}", e);
-                    flag_invalid_content(
-                        ErrorCode::InvalidRequest,
-                        "Create consent artefact request is not well-formed",
-                    )
-                }
-            };
+            let cr = Type::from_json::<fip::ConsentArtefactReq>(&json, &hp)?;
+            log::info!("{:#?}", cr);
+            Ok(Box::new(fip::ConsentArtefactResp::new(&cr)))
+            //hs::answer(Some(fip::ConsentArtefactResp::v2(&car.tx_id)))
         }
         _ => {
             log::error!("FIP unsupported request {}", uri.path());
-            flag_unrecognized(uri.path())
+            Err(hs::error_unsupported_request(uri.path()))
         }
     }
 }
 
 fn check_content_type_application_json(hp: &Headers) -> Result<(), ValidationError> {
-    match hp.probe("Content-Type") {
-        Some(ct) => {
-            if ct.eq_ignore_ascii_case("application/json") {
-                Ok(())
-            } else {
-                Err(ValidationError(
-                    hyper::StatusCode::BAD_REQUEST,
-                    ErrorCode::InvalidRequest,
-                    BAD_CONTENT_TYPE.to_owned(),
-                ))
-            }
-        }
-        _ => Err(ValidationError(
-            hyper::StatusCode::BAD_REQUEST,
+    if hp
+        .probe("Content-Type")
+        .is_some_and(|ct| ct.eq_ignore_ascii_case("application/json"))
+    {
+        Ok(())
+    } else {
+        Err(ValidationError(
             ErrorCode::InvalidRequest,
-            MISSING_CONTENT_TYPE.to_owned(),
-        )),
+            BAD_CONTENT_TYPE.to_owned(),
+        ))
     }
 }
 
-fn authenticate_rquest(hp: &Headers, body_json: &String) -> Result<(), ValidationError> {
+fn authenticate_request(hp: &Headers, body_json: &String) -> Result<(), ValidationError> {
     let _dpop = hp.probe("DPoP");
     let api_key = hp.probe("x-sammati-api-key");
     let x_jws_sig = hp.probe("x-jws-signature");
@@ -224,7 +224,6 @@ fn authenticate_rquest(hp: &Headers, body_json: &String) -> Result<(), Validatio
     // check if api_key looks ok
     if api_key.is_none() || api_key.as_ref().is_some_and(|s| s.len() < 16) {
         Err(ValidationError(
-            hyper::StatusCode::UNAUTHORIZED,
             ErrorCode::Unauthorized,
             "Bad API Key".to_owned(),
         ))
@@ -237,7 +236,6 @@ fn authenticate_rquest(hp: &Headers, body_json: &String) -> Result<(), Validatio
                 .map_err(|e| {
                     log::error!("Message signature verification failed");
                     ValidationError(
-                        hyper::StatusCode::UNAUTHORIZED,
                         match e {
                             Grumble::Base64EncodingBad => ErrorCode::InvalidBase64Encoding,
                             Grumble::BadDetachedSignature => ErrorCode::InvalidDetachedSignature,
@@ -246,12 +244,11 @@ fn authenticate_rquest(hp: &Headers, body_json: &String) -> Result<(), Validatio
                         INVALID_DETACHED_SIG.to_owned(),
                     )
                 }),
-            _ => Err(internal_error(JWS_KEYSTORE_ACCESS)),
+            _ => Err(hs::internal_error(JWS_KEYSTORE_ACCESS)),
         }
     } else {
         log::error!("Message signature missing - forbidden request");
         Err(ValidationError(
-            hyper::StatusCode::FORBIDDEN,
             ErrorCode::Unauthorized,
             MISSING_DETACHED_SIG.to_owned(),
         ))
@@ -306,81 +303,6 @@ async fn main() {
             std::process::exit(2);
         }
     }
-}
-
-fn answer_health_ok() -> InfallibleResult {
-    hs::answer(fip::HealthOkResp::<Kube>::v2(
-        &UtcTs::now(),
-        ServiceHealthStatus::UP,
-        Some(Kube::default()),
-    ))
-}
-
-fn internal_error(p: &str) -> ValidationError {
-    ValidationError(
-        hyper::StatusCode::INTERNAL_SERVER_ERROR,
-        ErrorCode::InternalError,
-        ("Unrecoverable internal error (".to_string() + p + ")").to_owned(),
-    )
-}
-
-fn flag_internal_error(p: &str) -> InfallibleResult {
-    flag_error(
-        hyper::StatusCode::INTERNAL_SERVER_ERROR,
-        ErrorCode::InternalError,
-        &("Unrecoverable internal error (".to_string() + p + ")"),
-    )
-}
-
-fn flag_service_unavailable(p: &str) -> InfallibleResult {
-    flag_error(
-        hyper::StatusCode::SERVICE_UNAVAILABLE,
-        ErrorCode::ServiceUnavailable,
-        &("Requested service is unavailable (".to_string() + p + ")"),
-    )
-}
-
-fn flag_nonempty_body() -> InfallibleResult {
-    flag_error(
-        hyper::StatusCode::FORBIDDEN,
-        ErrorCode::NonEmptyBodyForGetRequest,
-        "GET request body should be empty",
-    )
-}
-
-fn flag_unrecognized(p: &str) -> InfallibleResult {
-    flag_error(
-        hyper::StatusCode::NOT_FOUND,
-        ErrorCode::InvalidRequest,
-        &("Invalid request (".to_string() + p + ")"),
-    )
-}
-
-fn flag_unimplemented(p: &str) -> InfallibleResult {
-    flag_error(
-        hyper::StatusCode::NOT_IMPLEMENTED,
-        ErrorCode::NotImplemented,
-        &("Not implemented (".to_string() + p + ")"),
-    )
-}
-
-fn flag_payload_too_large(ec: ErrorCode, em: &str) -> InfallibleResult {
-    flag_error(hyper::StatusCode::PAYLOAD_TOO_LARGE, ec, em)
-}
-
-fn flag_incomplete_content(ec: ErrorCode, em: &str) -> InfallibleResult {
-    flag_error(hyper::StatusCode::BAD_REQUEST, ec, em)
-}
-
-fn flag_error(sc: hyper::StatusCode, ec: ErrorCode, em: &str) -> InfallibleResult {
-    hs::flag(
-        sc,
-        ErrResp::<Kube>::v2(None, &UtcTs::now(), ec, em, Some(Kube::default())),
-    )
-}
-
-fn flag_invalid_content(ec: ErrorCode, em: &str) -> InfallibleResult {
-    flag_error(hyper::StatusCode::BAD_REQUEST, ec, em)
 }
 
 // dev_test conditional compilation
@@ -456,8 +378,8 @@ mod tests {
     use dull::webkey::{KeyDesc, KeyStore};
     use serde::{Deserialize, Serialize};
 
-    use common::fip::HealthOkResp;
     use common::ts::UtcTs;
+    use common::types::HealthOkResp;
     use common::types::{Empty, ServiceHealthStatus};
 
     #[test]

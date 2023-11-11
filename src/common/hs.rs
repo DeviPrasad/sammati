@@ -1,5 +1,5 @@
-use crate::cfg::Config;
 use crate::mutter::Mutter;
+use crate::{cfg::Config, types::ValidationError};
 use async_trait::async_trait;
 use data_encoding::BASE64;
 use hyper::{
@@ -20,40 +20,47 @@ use std::{
 };
 
 use crate::ts::UtcTs;
-use crate::types::{Empty, ErrResp, ErrorCode};
+use crate::types::{
+    Empty, ErrResp, ErrorCode, HealthOkResp, InterfaceResponse, ServiceHealthStatus,
+};
 
 pub type InfallibleResult = Result<Response<Body>, Infallible>;
+
 pub static HTTP_PROC: OnceLock<Pin<Box<dyn HttpMethod>>> = OnceLock::new();
 
-pub fn flag_forbidden(em: &str) -> InfallibleResult {
-    flag(
-        hyper::StatusCode::FORBIDDEN,
-        ErrResp::<Empty>::v2(None, &UtcTs::now(), ErrorCode::Unauthorized, em, None),
-    )
+pub fn flag_http_method_forbidden(em: &str) -> InfallibleResult {
+    flag(Box::new(ErrResp::<Empty>::v2(
+        None,
+        &UtcTs::now(),
+        &ErrorCode::Unauthorized,
+        em,
+        hyper::StatusCode::FORBIDDEN.as_u16(),
+        None,
+    )))
 }
 
 #[async_trait]
 pub trait HttpMethod: Sync + Send {
     fn delete(&self, _: Request<Body>) -> InfallibleResult {
-        flag_forbidden("HTTP method DELETE not supported")
+        flag_http_method_forbidden("HTTP method DELETE not supported")
     }
     fn get(&self, _: Request<Body>) -> InfallibleResult {
-        flag_forbidden("HTTP method GET not supported")
+        flag_http_method_forbidden("HTTP method GET not supported")
     }
     fn head(&self, _: Request<Body>) -> InfallibleResult {
-        flag_forbidden("HTTP method HEAD not supported")
+        flag_http_method_forbidden("HTTP method HEAD not supported")
     }
     fn options(&self, _: Request<Body>) -> InfallibleResult {
-        flag_forbidden("HTTP method OPTIONS not supported")
+        flag_http_method_forbidden("HTTP method OPTIONS not supported")
     }
     fn patch(&self, _: Request<Body>) -> InfallibleResult {
-        flag_forbidden("HTTP method PATCH not supported")
+        flag_http_method_forbidden("HTTP method PATCH not supported")
     }
     fn post(&self, _: Request<Body>) -> InfallibleResult {
-        flag_forbidden("HTTP method POST not supported")
+        flag_http_method_forbidden("HTTP method POST not supported")
     }
     fn put(&self, _: Request<Body>) -> InfallibleResult {
-        flag_forbidden("HTTP method PUT not supported")
+        flag_http_method_forbidden("HTTP method PUT not supported")
     }
 }
 
@@ -192,7 +199,6 @@ impl Headers {
         }
         None
     }
-
     pub fn content_type_param(&self) -> Option<String> {
         self.headers
             .get(header::CONTENT_TYPE)
@@ -327,14 +333,16 @@ pub enum RespCode {
     ServiceUnavailable = 503,
 }
 
+/*
 pub fn answer<T>(t: T) -> InfallibleResult
 where
-    T: serde::Serialize,
+    T: serde::Serialize + types::Interface,
 {
     let rb = Response::builder()
         .header("Content-Type", "application/json")
         .header("Cache-Control", "no-store no-cache");
-    if let Ok(s) = serde_json::to_string::<T>(&t) {
+    // if let Ok(s) = serde_json::to_string::<T>(&t) {
+    if let Ok(s) = t.json() {
         Ok(rb
             .status(hyper::StatusCode::OK)
             .body(Body::from(s))
@@ -346,20 +354,94 @@ where
             .expect("internal server error"))
     }
 }
+*/
 
-pub fn flag<T>(hsc: hyper::StatusCode, t: T) -> InfallibleResult
-where
-    T: serde::Serialize,
-{
+pub fn answer(t: Box<dyn InterfaceResponse>) -> InfallibleResult {
     let rb = Response::builder()
         .header("Content-Type", "application/json")
         .header("Cache-Control", "no-store no-cache");
-    if let Ok(s) = serde_json::to_string::<T>(&t) {
-        Ok(rb.status(hsc).body(Body::from(s)).expect("ok"))
-    } else {
-        Ok(rb
-            .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
-            .body(Body::from("unexpected json serialization error"))
-            .expect("internal server error"))
-    }
+    Ok(rb
+        .status(hyper::StatusCode::OK)
+        .body(Body::from(t.json()))
+        .expect("non-empty "))
+}
+
+pub fn flag(t: Box<dyn InterfaceResponse>) -> InfallibleResult {
+    let rb = Response::builder()
+        .header("Content-Type", "application/json")
+        .header("Cache-Control", "no-store no-cache");
+    Ok(rb
+        .status(t.code() as u16)
+        .body(Body::from(t.json()))
+        .expect("non-empty error response"))
+}
+
+pub fn answer_health_ok() -> InfallibleResult {
+    answer(Box::new(HealthOkResp::<Empty>::v2(
+        &UtcTs::now(),
+        ServiceHealthStatus::UP,
+        None,
+    )))
+}
+
+pub fn internal_error(p: &str) -> ValidationError {
+    ValidationError(
+        ErrorCode::InternalError,
+        ("Unrecoverable internal error (".to_string() + p + ")").to_owned(),
+    )
+}
+
+pub fn error_nonempty_body() -> Box<dyn InterfaceResponse> {
+    Box::new(ErrResp::<Empty>::v2(
+        None,
+        &UtcTs::now(),
+        &ErrorCode::NonEmptyBodyForGetRequest,
+        &("GET request body should be empty"),
+        hyper::StatusCode::FORBIDDEN.as_u16(),
+        None,
+    ))
+}
+
+pub fn error_unsupported_request(p: &str) -> Box<dyn InterfaceResponse> {
+    Box::new(ErrResp::<Empty>::v2(
+        None,
+        &UtcTs::now(),
+        &ErrorCode::InvalidRequest,
+        &("Invalid request (".to_string() + p + ")"),
+        hyper::StatusCode::NOT_FOUND.as_u16(),
+        None,
+    ))
+}
+
+pub fn error_unimplemented_request(p: &str) -> Box<dyn InterfaceResponse> {
+    Box::new(ErrResp::<Empty>::v2(
+        None,
+        &UtcTs::now(),
+        &ErrorCode::NotImplemented,
+        &("Not implemented (".to_string() + p + ")"),
+        hyper::StatusCode::NOT_IMPLEMENTED.as_u16(),
+        None,
+    ))
+}
+
+pub fn flag_error(hsc: hyper::StatusCode, ec: ErrorCode, em: &str) -> InfallibleResult {
+    flag(Box::new(ErrResp::<Empty>::v2(
+        None,
+        &UtcTs::now(),
+        &ec,
+        em,
+        hsc.as_u16(),
+        None,
+    )))
+}
+
+pub fn flag_error_ext(hsc: u16, ec: ErrorCode, em: &str) -> InfallibleResult {
+    flag(Box::new(ErrResp::<Empty>::v2(
+        None,
+        &UtcTs::now(),
+        &ec,
+        em,
+        hsc,
+        None,
+    )))
 }

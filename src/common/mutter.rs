@@ -33,6 +33,7 @@ pub enum Mutter {
     NotImplemented = 41005,
     MockErrValue = 41007,
     MockUnspecified = 41010,
+    BadArgVal = 41011,
     ConnectionCreationError = 41020,
 
     BadConfigFilePath = 42001,
