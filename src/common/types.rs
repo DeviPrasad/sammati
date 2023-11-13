@@ -27,7 +27,7 @@ use uuid::Uuid;
 // An API or HTTP Url of any request or response has an unique path component.
 pub trait Interface {
     fn path() -> &'static str;
-    fn tx_id(&self) -> String;
+    fn txid_as_string(&self) -> String;
 }
 
 // Interface response bears an (http) status code, and is json-encoded.
@@ -45,12 +45,17 @@ impl Type {
     ) -> Result<T, Box<dyn InterfaceResponse>> {
         match serde_json::from_str::<T>(&json) {
             Ok(t) => {
-                let x_tx_id = hp.tx_id();
-                if x_tx_id.is_none() || x_tx_id.is_some_and(|s| s.to_string() == t.tx_id()) {
+                let x_tx_id = &hp.tx_id();
+                if x_tx_id.is_none()
+                    || x_tx_id
+                        .as_ref()
+                        .is_some_and(|s| s.to_string() == t.txid_as_string())
+                {
                     Ok(t)
                 } else {
                     Err(Box::new(ErrResp::<Empty>::v2(
-                        None,
+                        //x_tx_id,
+                        &TxId::from_ascii(&t.txid_as_string()).ok(),
                         &UtcTs::now(),
                         &ErrorCode::Unauthorized,
                         &[
@@ -67,7 +72,7 @@ impl Type {
             Err(_e) => {
                 log::error!("Type::from_josn {_e:#?}");
                 Err(Box::new(ErrResp::<Empty>::v2(
-                    None,
+                    &None,
                     &UtcTs::now(),
                     &ErrorCode::InvalidRequest,
                     &["Invalid JSON payload in the requst body (", T::path(), ")"].concat(),
@@ -118,7 +123,7 @@ where
     fn path() -> &'static str {
         "/Heartbeat"
     }
-    fn tx_id(&self) -> String {
+    fn txid_as_string(&self) -> String {
         match &self.tx_id {
             Some(s) => s.to_owned(),
             _ => "".to_owned(),
@@ -277,77 +282,30 @@ pub enum UserConsentStatus {
     REJECTED,
 }
 
-impl ToString for UserConsentStatus {
-    fn to_string(&self) -> String {
-        String::from(match self {
-            UserConsentStatus::ACTIVE => "ACTIVE",
-            UserConsentStatus::PAUSED => "PAUSED",
-            UserConsentStatus::REVOKED => "REVOKED",
-            UserConsentStatus::EXPIRED => "EXPIRED",
-            UserConsentStatus::PENDING => "PENDING",
-            UserConsentStatus::REJECTED => "REJECTED",
-        })
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UserConsentMode {
-    View,
-    Store,
-    Query,
-    Stream,
-}
-
-impl ToString for UserConsentMode {
-    fn to_string(&self) -> String {
-        String::from(match self {
-            UserConsentMode::View => "VIEW",
-            UserConsentMode::Store => "STORE",
-            UserConsentMode::Query => "QUERY",
-            UserConsentMode::Stream => "STREAM",
-        })
-    }
+    VIEW,
+    STORE,
+    QUERY,
+    STREAM,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FISessionStatus {
-    Active,
-    Completed,
-    Expired,
-    Failed,
-}
-
-impl ToString for FISessionStatus {
-    fn to_string(&self) -> String {
-        String::from(match self {
-            FISessionStatus::Active => "ACTIVE",
-            FISessionStatus::Completed => "COMPLETED",
-            FISessionStatus::Expired => "EXPIRED",
-            FISessionStatus::Failed => "FAILED",
-        })
-    }
+    ACTIVE,
+    COMPLETED,
+    EXPIRED,
+    FAILED,
 }
 
 // fetch-status of Financial Information
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AccountFIStatus {
-    Ready,
-    Denied,
-    Pending,
-    Delivered,
-    Timeout,
-}
-
-impl ToString for AccountFIStatus {
-    fn to_string(&self) -> String {
-        String::from(match self {
-            AccountFIStatus::Ready => "READY",
-            AccountFIStatus::Denied => "DENIED",
-            AccountFIStatus::Pending => "PENDING",
-            AccountFIStatus::Delivered => "DELIVERED",
-            AccountFIStatus::Timeout => "TIMEOUT",
-        })
-    }
+    READY,
+    DENIED,
+    PENDING,
+    DELIVERED,
+    TIMEOUT,
 }
 
 // There are two kinds of authentications that the FIP may support
@@ -361,7 +319,7 @@ pub enum FIPAccLinkingAuthType {
     TOKEN,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FIPAccLinkStatus {
     LINKED,
     DELINKED,
@@ -381,6 +339,7 @@ pub enum Curve {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct FIPAccLinkReqRefNum {
+    #[serde(rename = "RefNumber")]
     val: String,
 }
 
@@ -631,7 +590,7 @@ impl TxId {
     }
     #[allow(dead_code)]
     pub fn from_ascii(s: &str) -> Result<TxId, bool> {
-        if s.is_ascii() {
+        if s.len() > 0 && s.is_ascii() {
             Ok(TxId {
                 val: s.to_lowercase(),
             })
@@ -644,7 +603,13 @@ impl TxId {
     where
         D: serde::Deserializer<'de>,
     {
-        String::deserialize(deserializer).map(|id| TxId { val: id.to_owned() })
+        String::deserialize(deserializer).and_then(|id| {
+            if id.len() > 0 {
+                Ok(TxId { val: id.to_owned() })
+            } else {
+                Err(crate::mutter::Mutter::InvalidTxId).map_err(D::Error::custom)
+            }
+        })
     }
 }
 
@@ -831,6 +796,7 @@ pub struct FIPLinkedAccDesc {
 // Unique FIP Account Reference Number which will be usually linked with a masked account number.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPAccLinkRef {
+    #[serde(rename = "linkRefNumber")]
     val: String,
 }
 
@@ -1010,8 +976,10 @@ pub struct FIPAccOwnerIdentifier {
     pub id_val: AccOwnerId,
 }
 
+// identifier of the Customer generated during the registration with AA.
 #[derive(Clone, Debug, Serialize)]
 pub struct FIPAccOwnerAAId {
+    #[serde(rename = "customerAddress")]
     val: String,
 }
 
@@ -1021,6 +989,25 @@ impl FIPAccOwnerAAId {
         D: serde::Deserializer<'de>,
     {
         String::deserialize(deserializer).map(|id| FIPAccOwnerAAId { val: id.to_owned() })
+    }
+}
+
+// identifier of the Customer generated during the registration with AA.
+#[derive(Clone, Debug, Serialize)]
+pub struct CustomerAddressFIPAccOwnerAAId {
+    #[serde(rename = "customerAddress")]
+    val: String,
+}
+
+impl CustomerAddressFIPAccOwnerAAId {
+    pub fn deserialize_from_str<'de, D>(
+        deserializer: D,
+    ) -> Result<CustomerAddressFIPAccOwnerAAId, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer)
+            .map(|id| CustomerAddressFIPAccOwnerAAId { val: id.to_owned() })
     }
 }
 
@@ -1051,25 +1038,36 @@ pub struct FIPAccOwnerAccDescriptors {
     pub accounts: Vec<FIPAccDesc>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct FIPAccOwnerLinkedAccRef {
     // Identifier of the customer generated during the registration with AA.
-    // example: alice@sammati_aa_id.
-    pub ao_aa_id: FIPAccOwnerAAId,
+    // example: alex@sammati_aa_id.
+    #[serde(
+        rename = "customerAddress",
+        deserialize_with = "CustomerAddressFIPAccOwnerAAId::deserialize_from_str"
+    )]
+    pub customer_address: CustomerAddressFIPAccOwnerAAId,
     // An account's ref num at FIP - used in the delink_account request.
     // Reference number assigned by FIP in the account linking flow.
+    #[serde(
+        rename = "linkRefNumber",
+        deserialize_with = "FIPAccLinkRef::deserialize_from_str"
+    )]
     pub link_ref_num: FIPAccLinkRef,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct FIPAccOwnerLinkedAccStatus {
     // Identifier of the customer generated during the registration with AA.
-    // example: alice@sammati_aa_id.
-    pub ro_aa_id: FIPAccOwnerAAId,
+    // example: alex@sammati_aa_id.
+    #[serde(rename = "customerAddress", flatten)]
+    pub customer_address: CustomerAddressFIPAccOwnerAAId,
     // An account's ref num at FIP - used in the delink_account request.
     // Reference number assigned by FIP in the account linking flow.
+    #[serde(rename = "linkRefNumber", flatten)]
     pub link_ref_num: FIPAccLinkRef,
     // tells if the account is still linked.
+    #[serde(rename = "status")]
     pub status: FIPAccLinkStatus,
 }
 
@@ -1393,7 +1391,7 @@ impl Interface for Empty {
     fn path() -> &'static str {
         "Context::Empty"
     }
-    fn tx_id(&self) -> String {
+    fn txid_as_string(&self) -> String {
         "".to_owned()
     }
 }
@@ -1402,8 +1400,8 @@ impl Interface for Empty {
 pub struct ErrResp<T> {
     #[serde(rename = "version")]
     ver: String,
-    #[serde(rename = "txnid")]
-    tx_id: String,
+    #[serde(rename = "txnid", skip_serializing_if = "Option::is_none")]
+    tx_id: Option<String>,
     #[serde(rename = "timestamp")]
     ts: String,
     #[serde(rename = "uts")]
@@ -1426,7 +1424,7 @@ where
     T: Default + serde::Serialize,
 {
     pub fn v2(
-        tx_id: Option<TxId>,
+        tx_id: &Option<TxId>,
         t: &UtcTs,
         ec: &ErrorCode,
         em: &str,
@@ -1435,9 +1433,10 @@ where
     ) -> Self {
         ErrResp {
             ver: "2.0.0".to_string(),
-            tx_id: match tx_id {
-                Some(t) => t.to_string(),
-                None => "".to_string(),
+            tx_id: if tx_id.as_ref().is_some_and(|t| t.val.len() > 0) {
+                Some(tx_id.as_ref().unwrap().val.clone())
+            } else {
+                None
             },
             ts: t.to_string(),
             uts: t.ts,

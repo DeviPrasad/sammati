@@ -13,8 +13,8 @@ use common::{
     mutter::{self, Mutter},
     ts::UtcTs,
     types::{
-        ErrResp, ErrorCode, FIPAccLinkReqRefNum, FIPAccLinkingAuthType, InterfaceResponse, Type,
-        ValidationError,
+        ErrResp, ErrorCode, FIPAccLinkReqRefNum, FIPAccLinkStatus, FIPAccLinkingAuthType,
+        InterfaceResponse, Type, ValidationError,
     },
     CommandlineArgs,
 };
@@ -116,7 +116,7 @@ fn authenticated_dispatch(
         Err(ValidationError(ec, em)) => {
             // invalid API key, invalid x-jws-signature, invalid dpop
             Err(Box::new(ErrResp::<Kube>::v2(
-                hp.tx_id(),
+                &hp.tx_id(),
                 &UtcTs::now(),
                 &ec,
                 &em,
@@ -169,7 +169,11 @@ fn dispatch(
         }
         "/Accounts/delink" => {
             log::info!("FIP POST /Accounts/delink");
-            Err(hs::error_unimplemented_request("/Accounts/delink"))
+            let alr = Type::from_json::<fip::AccDelinkReq>(&json, &hp)?;
+            Ok(Box::new(fip::AccDelinkResp::new(
+                &alr,
+                FIPAccLinkStatus::PENDING,
+            )))
         }
         "/Accounts/link/verify" => {
             log::info!("FIP POST /Accounts/link/verify");
@@ -525,6 +529,58 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
             let jws = jws.unwrap();
             eprintln!(
                 "test_unencoded_sammati_accounts_link_hs512 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
+
+        let accounts_delink_req_json=br#"{"ver":"2.1.0","timestamp":"2023-11-10T17:51:18.412Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Account":{"customerAddress":"sammati.in/aa/uid/62415273490451973263","linkRefNumber":"14c3c1ee8b7a8e54fef456c4d6eb7b2b"}}"#;
+        {
+            let kd = KeyDesc::from_alg_kid(SignatureAlgorithm::HS512, FIP_WAP_HS512_KID_01);
+            let header_hs512 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::HS512)
+                .unencoded()
+                .kid(FIP_WAP_HS512_KID_01)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+            let jws = jws.sign(&kd, &header_hs512, accounts_delink_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_accounts_delink_hs512 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_accounts_delink_hs512 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
+        {
+            let kd = KeyDesc::from_alg_kid(
+                SignatureAlgorithm::EdDSA,
+                &String::from_utf8(KID_ED25519_PRIVATE_KEY_02.to_vec()).unwrap(),
+            );
+            let header_ed25519 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::EdDSA)
+                .unencoded()
+                .kid(KID_ED25519_PUBLIC_KEY_02)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+
+            let jws = jws.sign(&kd, &header_ed25519, accounts_delink_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_accounts_delink_ed25519 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_accounts_delink_ed25519 - unencoded-jws[2] {:#?}",
                 String::from_utf8(jws.clone()).unwrap()
             );
         }

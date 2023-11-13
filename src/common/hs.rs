@@ -30,7 +30,7 @@ pub static HTTP_PROC: OnceLock<Pin<Box<dyn HttpMethod>>> = OnceLock::new();
 
 pub fn flag_http_method_forbidden(em: &str) -> InfallibleResult {
     flag(Box::new(ErrResp::<Empty>::v2(
-        None,
+        &None,
         &UtcTs::now(),
         &ErrorCode::Unauthorized,
         em,
@@ -393,7 +393,7 @@ pub fn internal_error(p: &str) -> ValidationError {
 
 pub fn error_nonempty_body() -> Box<dyn InterfaceResponse> {
     Box::new(ErrResp::<Empty>::v2(
-        None,
+        &None,
         &UtcTs::now(),
         &ErrorCode::NonEmptyBodyForGetRequest,
         &("GET request body should be empty"),
@@ -404,7 +404,7 @@ pub fn error_nonempty_body() -> Box<dyn InterfaceResponse> {
 
 pub fn error_unsupported_request(p: &str) -> Box<dyn InterfaceResponse> {
     Box::new(ErrResp::<Empty>::v2(
-        None,
+        &None,
         &UtcTs::now(),
         &ErrorCode::InvalidRequest,
         &("Invalid request (".to_string() + p + ")"),
@@ -415,7 +415,7 @@ pub fn error_unsupported_request(p: &str) -> Box<dyn InterfaceResponse> {
 
 pub fn error_unimplemented_request(p: &str) -> Box<dyn InterfaceResponse> {
     Box::new(ErrResp::<Empty>::v2(
-        None,
+        &None,
         &UtcTs::now(),
         &ErrorCode::NotImplemented,
         &("Not implemented (".to_string() + p + ")"),
@@ -426,7 +426,7 @@ pub fn error_unimplemented_request(p: &str) -> Box<dyn InterfaceResponse> {
 
 pub fn flag_error(hsc: hyper::StatusCode, ec: ErrorCode, em: &str) -> InfallibleResult {
     flag(Box::new(ErrResp::<Empty>::v2(
-        None,
+        &None,
         &UtcTs::now(),
         &ec,
         em,
@@ -437,7 +437,7 @@ pub fn flag_error(hsc: hyper::StatusCode, ec: ErrorCode, em: &str) -> Infallible
 
 pub fn flag_error_ext(hsc: u16, ec: ErrorCode, em: &str) -> InfallibleResult {
     flag(Box::new(ErrResp::<Empty>::v2(
-        None,
+        &None,
         &UtcTs::now(),
         &ec,
         em,
