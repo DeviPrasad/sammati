@@ -1,0 +1,21 @@
+
+curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/Accounts/link/verify'\
+    -H 'Accept: application/json'\
+    -H 'Content-Type: application/json'\
+    -H 'x-jws-signature: eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6IktJQ0FnSUNBZ0lDQWdJQ0FnSW5WdWFYUWlPaUFpVFU5T1ZFZ2lMQTBLSUMifQ..TYBvm8G4fWG2kZwLtYF2YCL5DHghR-Iwn8LXSOBMTGZl6OOdN-Nu-QK-CFTtA-TXIk49mo8zh4hSBEXrxBSiAA'\
+    -H 'x-sammati-api-key: b351804dfcdc5fd1aed0263f775f'\
+    -d '{"ver":"2.1.0","timestamp":"2023-11-10T17:51:18.412Z","txnid":"f35761ac-4a18-11e8-96ff-351804dfcdc5","refNumber":"mNyaXQiOlsiYjY0Il0sImtpZCItJQ0Fn","token":"165023"}'
+
+
+curl -v -X 'POST' 'http: //fip-wap.sammati.web3pleb.org:40601/Accounts/link/verify'\
+    -H 'Accept: application/json'\
+    -H 'Content-Type: application/json'\
+    -H 'x-jws-signature: eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6IktJQ0FnSUNBZ0lDQWdJQ0FnSW5WdWFYUWlPaUFpVFU5T1ZFZ2lMQTBLSUMifQ..JcjiEfDUgMLxjcBWCpUanseEoO6Eq-qw6ddntdd98gpmR2VAHDPtwnmEpBD3xy9M-UsGIntLXLAGhzCRetyICw'\
+    -H 'x-sammati-api-key: b351804dfcdc5fd1aed0263f775f'\
+    -d '{
+        "ver": "2.1.0",
+        "timestamp": "2023-11-10T17:51:18.412Z",
+        "txnid": "f35761ac-4a18-11e8-96ff-351804dfcdc5",
+        "refNumber": "mNyaXQiOlsiYjY0Il0sImtpZCItJQ0Fn",
+        "token": "165023"
+    }'

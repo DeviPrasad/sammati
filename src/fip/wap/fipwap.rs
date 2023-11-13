@@ -155,13 +155,13 @@ fn dispatch(
         "/Accounts/discover" => {
             log::info!("FIP POST /Accounts/discover");
             let adr: fip::AccDiscoveryReq = Type::from_json::<fip::AccDiscoveryReq>(&json, &hp)?;
-            log::info!("{:#?}", adr);
+            log::info!("/Accounts/discover {:#?}", adr);
             Ok(Box::new(fip::AccDiscoveryResp::new(&adr, &Vec::new())))
         }
         "/Accounts/link" => {
             log::info!("FIP POST /Accounts/link");
             let alr = Type::from_json::<fip::AccLinkReq>(&json, &hp)?;
-            log::info!("{:#?}", alr);
+            log::info!("/Accounts/link {alr:#?}");
             let at: FIPAccLinkingAuthType = FIPAccLinkingAuthType::DIRECT;
             let acc_ref_num = FIPAccLinkReqRefNum::from("f6b1482e-8f08-11e8-862a-02552b0d3c36")
                 .expect("account link ref number");
@@ -170,6 +170,7 @@ fn dispatch(
         "/Accounts/delink" => {
             log::info!("FIP POST /Accounts/delink");
             let alr = Type::from_json::<fip::AccDelinkReq>(&json, &hp)?;
+            log::info!("/Accounts/delink {alr:#?}");
             Ok(Box::new(fip::AccDelinkResp::new(
                 &alr,
                 FIPAccLinkStatus::PENDING,
@@ -177,7 +178,10 @@ fn dispatch(
         }
         "/Accounts/link/verify" => {
             log::info!("FIP POST /Accounts/link/verify");
-            Err(hs::error_unimplemented_request("/Accounts/link/verify"))
+            let lvr = Type::from_json::<fip::FIPAccLinkVerifyReq>(&json, &hp)?;
+            log::info!("/Accounts/link/verify {lvr:#?}");
+
+            Ok(Box::new(fip::FIPAccLinkVerifyResp::mock_response(&lvr)))
         }
         "/FI/request" => {
             log::info!("FIP POST /FI/request");
@@ -581,6 +585,58 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
             let jws = jws.unwrap();
             eprintln!(
                 "test_unencoded_sammati_accounts_delink_ed25519 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
+        //
+        let accounts_link_verify_req_json=br#"{"ver":"2.1.0","timestamp":"2023-11-10T17:51:18.412Z","txnid":"f35761ac-4a18-11e8-96ff-351804dfcdc5","refNumber":"mNyaXQiOlsiYjY0Il0sImtpZCItJQ0Fn","token":"165023"}"#;
+        {
+            let kd = KeyDesc::from_alg_kid(SignatureAlgorithm::HS512, FIP_WAP_HS512_KID_01);
+            let header_hs512 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::HS512)
+                .unencoded()
+                .kid(FIP_WAP_HS512_KID_01)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+            let jws = jws.sign(&kd, &header_hs512, accounts_link_verify_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_accounts_link_verify_req_hs512 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_accounts_link_verify_req_hs512 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
+        {
+            let kd = KeyDesc::from_alg_kid(
+                SignatureAlgorithm::EdDSA,
+                &String::from_utf8(KID_ED25519_PRIVATE_KEY_02.to_vec()).unwrap(),
+            );
+            let header_ed25519 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::EdDSA)
+                .unencoded()
+                .kid(KID_ED25519_PUBLIC_KEY_02)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+
+            let jws = jws.sign(&kd, &header_ed25519, accounts_link_verify_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_accounts_link_verify_req_ed25519 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_accounts_link_verify_req_ed25519 - unencoded-jws[2] {:#?}",
                 String::from_utf8(jws.clone()).unwrap()
             );
         }

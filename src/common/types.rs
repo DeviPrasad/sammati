@@ -351,11 +351,46 @@ impl FIPAccLinkReqRefNum {
             Err(Mutter::BadArgVal)
         }
     }
+
+    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<FIPAccLinkReqRefNum, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if let Ok(t) = String::deserialize(deserializer) {
+            if let Ok(tok) = Self::from(&t) {
+                return Ok(tok);
+            }
+        }
+        Err(crate::mutter::Mutter::InvalidOneTimeToken).map_err(D::Error::custom)
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct FIPAccLinkToken {
+    #[serde(rename = "token")]
     val: String,
+}
+
+impl FIPAccLinkToken {
+    pub fn from(s: &str) -> Result<Self, Mutter> {
+        if s.len() >= 6 {
+            Ok(Self { val: s.to_owned() })
+        } else {
+            Err(Mutter::BadArgVal)
+        }
+    }
+
+    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<FIPAccLinkToken, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if let Ok(t) = String::deserialize(deserializer) {
+            if let Ok(tok) = Self::from(&t) {
+                return Ok(tok);
+            }
+        }
+        Err(crate::mutter::Mutter::InvalidOneTimeToken).map_err(D::Error::custom)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -801,6 +836,10 @@ pub struct FIPAccLinkRef {
 }
 
 impl FIPAccLinkRef {
+    pub fn from(s: &str) -> Self {
+        Self { val: s.to_string() }
+    }
+
     pub fn deserialize_from_str<'de, D>(d: D) -> Result<FIPAccLinkRef, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -815,6 +854,10 @@ pub struct FIPMaskedAccNum {
 }
 
 impl FIPMaskedAccNum {
+    pub fn from(s: &str) -> Self {
+        Self { val: s.to_string() }
+    }
+
     pub fn deserialize_from_str<'de, D>(d: D) -> Result<FIPMaskedAccNum, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -826,10 +869,15 @@ impl FIPMaskedAccNum {
 // Unique FIP account reference number which is linked with the masked account number.
 #[derive(Clone, Debug, Serialize)]
 pub struct FIPMaskedAccRefNum {
+    #[serde(rename = "accRefNumber")]
     val: String,
 }
 
 impl FIPMaskedAccRefNum {
+    pub fn from(s: &str) -> Self {
+        Self { val: s.to_string() }
+    }
+
     pub fn deserialize_from_str<'de, D>(d: D) -> Result<FIPMaskedAccRefNum, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -984,6 +1032,10 @@ pub struct FIPAccOwnerAAId {
 }
 
 impl FIPAccOwnerAAId {
+    pub fn from(s: &str) -> Self {
+        Self { val: s.to_string() }
+    }
+
     pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<FIPAccOwnerAAId, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -1072,17 +1124,37 @@ pub struct FIPAccOwnerLinkedAccStatus {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct FIPVerifiedLinkedAccStatus {
+pub struct FIPConfirmAccLinkingStatus {
     // Identifier of the customer generated during the registration with AA.
     // example: alice@sammati_aa_id.
-    pub ro_aa_id: FIPAccOwnerAAId,
+    #[serde(rename = "customerAddress", flatten)]
+    pub customer_address: FIPAccOwnerAAId,
     // An account's ref num at FIP - used in the delink_account request.
     // Reference number assigned by FIP in the account linking flow.
+    #[serde(rename = "linkRefNumber", flatten)]
     pub link_ref_num: FIPAccLinkRef,
     // Unique FIP account reference number which is linked with the masked account number.
+    #[serde(rename = "accRefNumber", flatten)]
     pub acc_ref_num: FIPMaskedAccRefNum,
     // tells if the account is still linked.
+    #[serde(rename = "status")]
     pub status: FIPAccLinkStatus,
+}
+
+impl FIPConfirmAccLinkingStatus {
+    pub fn _mock_from_(
+        addr: &str,
+        link_ref_num: &str,
+        masked_acc_ref_num: &str,
+        status: FIPAccLinkStatus,
+    ) -> Self {
+        Self {
+            customer_address: FIPAccOwnerAAId::from(addr),
+            link_ref_num: FIPAccLinkRef::from(link_ref_num),
+            acc_ref_num: FIPMaskedAccRefNum::from(masked_acc_ref_num),
+            status,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]

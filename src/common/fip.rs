@@ -6,7 +6,7 @@ use crate::types::{
     AccOwnerConsentProof, Base64EncUuid, ConsentId, ConsentUse, FIPAccDesc, FIPAccLinkRef,
     FIPAccLinkReqRefNum, FIPAccLinkStatus, FIPAccLinkToken, FIPAccLinkingAuthType, FIPAccOwner,
     FIPAccOwnerAccDescriptors, FIPAccOwnerConsentStatus, FIPAccOwnerLinkedAccRef,
-    FIPAccOwnerLinkedAccStatus, FIPId, FIPVerifiedLinkedAccStatus, FIType, FinInfo, Interface,
+    FIPAccOwnerLinkedAccStatus, FIPConfirmAccLinkingStatus, FIPId, FIType, FinInfo, Interface,
     InterfaceResponse, KeyMaterial, Notifier, TxId, UserConsentStatus,
 };
 use bytes::Bytes;
@@ -297,8 +297,8 @@ impl InterfaceResponse for AccDelinkResp {
 // A request for linking account with a link reference number for future identification.
 // The call originates from AA client or FIU.
 // FIP doc calls this 'LinkDelinkTokenRequest'.
-#[derive(Clone, Debug, Serialize)]
-pub struct AccMgmtTokenSubmitReq {
+#[derive(Clone, Debug, Deserialize)]
+pub struct FIPAccLinkVerifyReq {
     // (required) API version = "2.0.0"
     #[serde(rename = "ver")]
     pub ver: String,
@@ -309,24 +309,87 @@ pub struct AccMgmtTokenSubmitReq {
     #[serde(rename = "txnid", deserialize_with = "TxId::deserialize_from_str")]
     pub tx_id: TxId,
     // account holder's AA-identifier, linked account's reference number at FIP, and its current status.
+    #[serde(
+        rename = "refNumber",
+        deserialize_with = "FIPAccLinkReqRefNum::deserialize_from_str"
+    )]
     pub ref_num: FIPAccLinkReqRefNum,
     // the token which FIP sent to the account holder.
+    #[serde(
+        rename = "token",
+        deserialize_with = "FIPAccLinkToken::deserialize_from_str"
+    )]
     pub token: FIPAccLinkToken,
+}
+
+impl Interface for FIPAccLinkVerifyReq {
+    fn path() -> &'static str {
+        "/Accounts/link/verify"
+    }
+    fn txid_as_string(&self) -> String {
+        self.tx_id.to_string()
+    }
 }
 
 // FIP doc calls this 'LinkDelinkTokenResponse'.
 #[derive(Clone, Debug, Serialize)]
-pub struct AccMgmtTokenSubmitResp {
+pub struct FIPAccLinkVerifyResp {
     // (required) API version = "2.0.0"
     #[serde(rename = "ver")]
     pub ver: String,
     // (required) creation timestamp of the message.
     #[serde(rename = "timestamp", flatten)]
     pub timestamp: UtcTs,
+    #[serde(rename = "uts")]
+    pub uts: i64,
     // unique transaction identifier used for providing end-to-end traceability.
     #[serde(rename = "txnid", flatten)]
     pub tx_id: TxId,
-    pub linked_accounts: Vec<FIPVerifiedLinkedAccStatus>,
+    #[serde(rename = "AccLinkDetails")]
+    pub linked_accounts: Vec<FIPConfirmAccLinkingStatus>,
+}
+
+impl FIPAccLinkVerifyResp {
+    pub fn new(lvr: &FIPAccLinkVerifyReq, accounts: Vec<FIPConfirmAccLinkingStatus>) -> Self {
+        Self::v2(lvr, accounts)
+    }
+
+    pub fn v2(lvr: &FIPAccLinkVerifyReq, accounts: Vec<FIPConfirmAccLinkingStatus>) -> Self {
+        let t: UtcTs = UtcTs::now();
+        FIPAccLinkVerifyResp {
+            ver: "2.0.0".to_string(),
+            uts: t.ts,
+            timestamp: t,
+            tx_id: lvr.tx_id.clone(),
+            linked_accounts: accounts,
+        }
+    }
+
+    pub fn mock_response(lvr: &FIPAccLinkVerifyReq) -> Self {
+        let acc_01 = FIPConfirmAccLinkingStatus::_mock_from_(
+            "sammati.in/aa/uid/62415273490451973263",
+            "82156340028457942816",
+            "xxxxxxxxxxxxxxx29361",
+            FIPAccLinkStatus::LINKED,
+        );
+        let acc_02 = FIPConfirmAccLinkingStatus::_mock_from_(
+            "sammati.in/aa/uid/62415273490451973263",
+            "80136340128457942811",
+            "xxxxxxxxxxxxxxx31589",
+            FIPAccLinkStatus::PENDING,
+        );
+        let accounts: Vec<FIPConfirmAccLinkingStatus> = vec![acc_01, acc_02];
+        Self::new(lvr, accounts)
+    }
+}
+
+impl InterfaceResponse for FIPAccLinkVerifyResp {
+    fn code(&self) -> u32 {
+        200 as u32
+    }
+    fn json(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
 }
 
 // AA requests financial information from FIP.
