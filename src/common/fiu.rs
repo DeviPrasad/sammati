@@ -77,7 +77,7 @@ mod tests {
         println!("{:#?}", ts);
         let csn = ConsentStatusNotification {
             ver: "2.0.0".to_owned(),
-            /// timestamp: DateTime::<FixedOffset>::parse_from_rfc3339("2023-08-15T11:39:57.153Z").unwrap(),
+            // timestamp: DateTime::<FixedOffset>::parse_from_rfc3339("2023-08-15T11:39:57.153Z").unwrap(),
             timestamp: ts.unwrap(),
             txid: TxId::from_uuid("0b811819-9044-4856-b0ee-8c88035f8858").unwrap(),
             notifer: Notifier {
@@ -86,10 +86,10 @@ mod tests {
             },
             consent: UserConsent {
                 id: Some(ConsentId {
-                    val: "XXXX0-XXXX-XXXX".to_owned(),
+                    val: "7dfd3024-6010-4bd7-aeb1-82bed8a21c8b".to_owned(),
                 }),
                 handle: Some(ConsentHandle {
-                    val: "XXXX0-XXXX-XXXX".to_owned(),
+                    val: "334b8752-433e-449f-b382-bf5ee7a886c8".to_owned(),
                 }),
                 status: UserConsentStatus::PAUSED,
             },

@@ -3,6 +3,7 @@
 pub mod aa;
 pub mod cfg;
 pub mod choice;
+pub mod deposit;
 pub mod ecdhe;
 pub mod fip;
 pub mod fiu;

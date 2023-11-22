@@ -42,6 +42,30 @@ impl Serialize for UtcTs {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DepositAccTxTimestamp(pub UtcTs);
+impl Serialize for DepositAccTxTimestamp {
+    fn serialize<S>(&self, ss: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        let mut st = ss.serialize_struct("DepositAccTxTimestamp", 1)?;
+        st.serialize_field("transactionTimestamp", &self.0.to_string())?;
+        st.end()
+    }
+}
+impl DepositAccTxTimestamp {
+    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<DepositAccTxTimestamp, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        UtcTs::from_str(&s)
+            .map(|ts| Self(ts))
+            .map_err(Error::custom)
+    }
+}
+
 impl UtcTs {
     pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<UtcTs, D::Error>
     where
@@ -120,9 +144,11 @@ impl UtcTs {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct TimePeriod {
+    #[serde(rename = "from", deserialize_with = "UtcTs::deserialize_from_str")]
     pub from: UtcTs,
+    #[serde(rename = "to", deserialize_with = "UtcTs::deserialize_from_str")]
     pub to: UtcTs,
 }
 

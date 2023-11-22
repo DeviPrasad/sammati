@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::ts::UtcTs;
-use crate::types::{Base64EncUuid, FIPAccLinkRef, FIPId, FinInfo, TxId};
+use crate::types::{FIPAccLinkRef, FIPId, FinInfo, SessionId, TxId};
 use serde::Serialize;
 
 /// API managed by AA
@@ -17,7 +17,7 @@ pub struct FIFetchRequest {
     pub tx_id: TxId,
     /// A session ID is a base64 encoded UUID number.
     /// AA creates a fresh session_id value for each FI access request made by FIU or AA Client.
-    pub session_id: Base64EncUuid,
+    pub session_id: SessionId,
     // FIP ID as defined in the Account Aggregator Ecosystem.
     pub fip_id: Option<FIPId>,
     // Unique reference number assigned by FIP as part of Account Linking Process.

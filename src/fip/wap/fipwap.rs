@@ -185,7 +185,9 @@ fn dispatch(
         }
         "/FI/request" => {
             log::info!("FIP POST /FI/request");
-            Err(hs::error_unimplemented_request("/FI/request"))
+            let fir = Type::from_json::<fip::FIRequest>(&json, &hp)?;
+            log::info!("/Accounts/link/verify {fir:#?}");
+            Ok(Box::new(fip::FIResp::mock_response(&fir)))
         }
         "/FI/fetch" => {
             log::info!("FIP POST /FI/fetch");
@@ -201,7 +203,6 @@ fn dispatch(
             let cr = Type::from_json::<fip::ConsentArtefactReq>(&json, &hp)?;
             log::info!("{:#?}", cr);
             Ok(Box::new(fip::ConsentArtefactResp::new(&cr)))
-            //hs::answer(Some(fip::ConsentArtefactResp::v2(&car.tx_id)))
         }
         _ => {
             log::error!("FIP unsupported request {}", uri.path());
@@ -326,11 +327,12 @@ fn nickel_cache_init_well_known_sig_keys(nks: &mut dull::nickel::NickelKeyStore)
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEVs/o5+uQbTjL3chynL4wXgUg2R9
 q9UU8I5mEovUf86QZ7kOBIjJwqnzD1omageEHWwHdBO6B+dFabmdT9POxg==
 -----END PUBLIC KEY-----"#;
-    const _SAMMATI_AA_ES256_PRIVATE_KEY_FYR_: &[u8] = br#"-----BEGIN PRIVATE KEY-----
+    const SAMMATI_AA_ES256_PRIVATE_KEY: &str = "-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgevZzL1gdAFr88hb2
 OF/2NxApJCzGCEDdfSp6VQO30hyhRANCAAQRWz+jn65BtOMvdyHKcvjBeBSDZH2r
 1RTwjmYSi9R/zpBnuQ4EiMnCqfMPWiZqB4QdbAd0E7oH50VpuZ1P087G
------END PRIVATE KEY-----"#;
+-----END PRIVATE KEY-----";
+    const SAMMATI_AA_ES256_PRIVATE_KEY_KID: &str = "vPfRqE60B33tzVlF5E6OA2mKK17sGRXsfrI9obBEjL5";
     const SAMMATI_AA_ES256_PUBKEY_KID_25: &str = "RP4J7WDWoT-JP00a81lOIn-6q1LkscQ-r-IoyWPS-Nk";
 
     const SAMMATI_AA_ED25519_PUB_KEY_PEM_02: &[u8] = br#"-----BEGIN PUBLIC KEY-----
@@ -445,11 +447,23 @@ mod tests {
             ServiceHealthStatus::DOWN,
             Some(FipNode::default()),
         );
-        eprintln!("simple_ok_response object: {:#?}", resp);
+        //eprintln!("simple_ok_response object: {:#?}", resp);
         let json = serde_json::to_string(&resp);
-        eprintln!("simple_ok_response json: {:#?}", json);
+        //eprintln!("simple_ok_response json: {:#?}", json);
         assert!(matches!(json, Ok(_)))
     }
+
+    const SAMMATI_AA_ES256_PUBLIC_KEY: &[u8] = br#"-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEVs/o5+uQbTjL3chynL4wXgUg2R9
+q9UU8I5mEovUf86QZ7kOBIjJwqnzD1omageEHWwHdBO6B+dFabmdT9POxg==
+-----END PUBLIC KEY-----"#;
+    const SAMMATI_AA_ES256_PRIVATE_KEY: &[u8] = br#"-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgevZzL1gdAFr88hb2
+OF/2NxApJCzGCEDdfSp6VQO30hyhRANCAAQRWz+jn65BtOMvdyHKcvjBeBSDZH2r
+1RTwjmYSi9R/zpBnuQ4EiMnCqfMPWiZqB4QdbAd0E7oH50VpuZ1P087G
+-----END PRIVATE KEY-----"#;
+    const KID_SAMMATI_AA_ES256_PRIVATE_KEY: &str = "vPfRqE60B33tzVlF5E6OA2mKK17sGRXsfrI9obBEjL5";
+    const KID_SAMMATI_AA_ES256_PUBLIC_KEY: &str = "RP4J7WDWoT-JP00a81lOIn-6q1LkscQ-r-IoyWPS-Nk";
 
     #[test]
     pub fn test_unencoded_sammati_accounts_link_ed25519() {
@@ -480,6 +494,18 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
                 FIP_WAP_HS512_KEY.as_bytes(),
             );
             assert!(res);
+            let res = ks.add_sig_ec_private_key_pem(
+                dull::jwa::SignatureAlgorithm::ES256,
+                KID_SAMMATI_AA_ES256_PRIVATE_KEY,
+                SAMMATI_AA_ES256_PRIVATE_KEY,
+            );
+            assert!(res);
+            let res = ks.add_sig_ec_public_key_pem(
+                dull::jwa::SignatureAlgorithm::ES256,
+                KID_SAMMATI_AA_ES256_PUBLIC_KEY,
+                SAMMATI_AA_ES256_PUBLIC_KEY,
+            );
+            assert!(res);
         }
         let jws = JWSigner::for_nickel(&nks);
         let accounts_link_req_json = br#"{"ver":"2.1.0","timestamp":"2023-11-10T17:51:18.412Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Customer":{"id":"sammati.in/aa/uid/62415273490451973263","Accounts":[{"FIType":"DEPOSIT","accType":"SAVINGS","accRefNumber":"NADB0000570926453147364217812345","maskedAccNumber":"XXXXXXXXXXXXX0753468"},{"FIType":"DEPOSIT","accType":"SAVINGS","accRefNumber":"NADB0000570926453147364217812345","maskedAccNumber":"XXXXXXXXXXXXX2853165"}]}}"#;
@@ -506,11 +532,11 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
                 );
             }
             assert!(ds.is_ok());
-            let ds = ds.unwrap();
+            /*let ds = ds.unwrap();
             eprintln!(
                 "test_unencoded_sammati_accounts_link_ed25519 - unencoded-jws[2] {:#?}",
                 String::from_utf8(ds.clone()).unwrap()
-            );
+            );*/
         }
         {
             let kd = KeyDesc::from_alg_kid(SignatureAlgorithm::HS512, FIP_WAP_HS512_KID_01);
@@ -530,13 +556,13 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
                 );
             }
             assert!(jws.is_ok());
-            let jws = jws.unwrap();
+            /*let jws = jws.unwrap();
             eprintln!(
                 "test_unencoded_sammati_accounts_link_hs512 - unencoded-jws[2] {:#?}",
                 String::from_utf8(jws.clone()).unwrap()
-            );
+            );*/
         }
-
+        //
         let accounts_delink_req_json=br#"{"ver":"2.1.0","timestamp":"2023-11-10T17:51:18.412Z","txnid":"f35761ac-4a18-11e8-96ff-0277a9fbfedc","Account":{"customerAddress":"sammati.in/aa/uid/62415273490451973263","linkRefNumber":"14c3c1ee8b7a8e54fef456c4d6eb7b2b"}}"#;
         {
             let kd = KeyDesc::from_alg_kid(SignatureAlgorithm::HS512, FIP_WAP_HS512_KID_01);
@@ -555,11 +581,11 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
                 );
             }
             assert!(jws.is_ok());
-            let jws = jws.unwrap();
+            /*let jws = jws.unwrap();
             eprintln!(
                 "test_unencoded_sammati_accounts_delink_hs512 - unencoded-jws[2] {:#?}",
                 String::from_utf8(jws.clone()).unwrap()
-            );
+            );*/
         }
         {
             let kd = KeyDesc::from_alg_kid(
@@ -582,11 +608,11 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
                 );
             }
             assert!(jws.is_ok());
-            let jws = jws.unwrap();
+            /*let jws = jws.unwrap();
             eprintln!(
                 "test_unencoded_sammati_accounts_delink_ed25519 - unencoded-jws[2] {:#?}",
                 String::from_utf8(jws.clone()).unwrap()
-            );
+            );*/
         }
         //
         let accounts_link_verify_req_json=br#"{"ver":"2.1.0","timestamp":"2023-11-10T17:51:18.412Z","txnid":"f35761ac-4a18-11e8-96ff-351804dfcdc5","refNumber":"mNyaXQiOlsiYjY0Il0sImtpZCItJQ0Fn","token":"165023"}"#;
@@ -607,11 +633,11 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
                 );
             }
             assert!(jws.is_ok());
-            let jws = jws.unwrap();
+            /*let jws = jws.unwrap();
             eprintln!(
                 "test_unencoded_sammati_accounts_link_verify_req_hs512 - unencoded-jws[2] {:#?}",
                 String::from_utf8(jws.clone()).unwrap()
-            );
+            );*/
         }
         {
             let kd = KeyDesc::from_alg_kid(
@@ -634,9 +660,87 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
                 );
             }
             assert!(jws.is_ok());
-            let jws = jws.unwrap();
+            /*let jws = jws.unwrap();
             eprintln!(
                 "test_unencoded_sammati_accounts_link_verify_req_ed25519 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );*/
+        }
+        //
+        //
+        let fi_req_json=br#"{"ver":"2.0.0","timestamp":"2023-11-13T19:01:05.505Z","txnid":"fcd8ca5c-f791-4a4f-967e-fc8a5a34a93d","Consent":{"id":"cid_eLQuFAB1QRyWY_DHYxUX4Q","digitalSignature":"O3KPh-eTpW2w47QXYidOBe1Hk2y7djVAEcOnZyRRvxQ3cY18-9ZWiodF16jff-e7yNQgsYZpAy95Fx2Fft8LoYugkYh9_6qHiG_7LCtW8Ng4nCMgZM3Wwsj11ks1msrK5C1ksPrGlTkFhm9-FufNkPTAlW76_5Sb8G_lOsIj1lB8TrvKpOvPlhEIgsS4WBNdPfv3SBqTV2suw2LvkX3QTilqwuMgXMkrm9-RYL90fweX_yyoyaBWHOJNQaKNuQWPpoRRNHGOx3v4_QiwgrELdfeTVtKn6R_AsfaBoEthQ3wrc8tY1q0Wx5j0x18NdU2R2C26dHyZ9M11dEH99psA1A"},"FIDataRange":{"from":"2023-04-01T00:00:00.000Z","to":"2024-03-31T23:59:59.000Z"},"KeyMaterial":{"cryptoAlg":"ECDH","curve":"X25519","params":"cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH","DHPublicKey":{"expiry":"2024-04-01T00:00:00.000Z","Parameters":"publicKeyEncoding=HEX;nonceEncoding=HEX;nonceLen=12","KeyValue":"e6db6867583030db3594c1a424b15f7c726624ec26b3353b10a903a6d0ab1c4c"},"Nonce":"46474a88a0c66a38e70c0629"}}"#;
+        {
+            let kd = KeyDesc::from_alg_kid(SignatureAlgorithm::HS512, FIP_WAP_HS512_KID_01);
+            let header_hs512 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::HS512)
+                .unencoded()
+                .kid(FIP_WAP_HS512_KID_01)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+            let jws = jws.sign(&kd, &header_hs512, fi_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_fi_req_hs512 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_fi_req_hs512 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
+        {
+            let kd = KeyDesc::from_alg_kid(
+                SignatureAlgorithm::EdDSA,
+                &String::from_utf8(KID_ED25519_PRIVATE_KEY_02.to_vec()).unwrap(),
+            );
+            let header_ed25519 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::EdDSA)
+                .unencoded()
+                .kid(KID_ED25519_PUBLIC_KEY_02)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+
+            let jws = jws.sign(&kd, &header_ed25519, fi_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_fi_req_ed25519 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_fi_req_ed25519 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
+        {
+            let signing_kd =
+                KeyDesc::from_alg_kid(SignatureAlgorithm::ES256, KID_SAMMATI_AA_ES256_PRIVATE_KEY);
+            let header_es256_pub = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::ES256)
+                .unencoded()
+                .kid(KID_SAMMATI_AA_ES256_PUBLIC_KEY)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+
+            let jws = jws.sign(&signing_kd, &header_es256_pub, fi_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_fi_req_es256 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_fi_req_es256 - unencoded-jws[2] {:#?}",
                 String::from_utf8(jws.clone()).unwrap()
             );
         }

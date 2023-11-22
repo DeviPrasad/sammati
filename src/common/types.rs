@@ -18,6 +18,7 @@ use bytes::Bytes;
 use data_encoding::BASE64_NOPAD;
 use dull::hex;
 use serde::de::Error;
+use serde::ser::SerializeStruct as _;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::fmt::{Debug, Write as _};
@@ -335,6 +336,7 @@ pub enum EncryptAlg {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Curve {
     Curve25519,
+    X25519,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -648,8 +650,9 @@ impl TxId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Base64EncUuid {
+#[derive(Clone, Debug, PartialEq)]
+pub struct SessionId {
+    //#[serde(skip)]
     pub rb: [u8; 16],
     pub es: String,
 }
@@ -664,18 +667,51 @@ pub enum Base64EncUuidErr {
     ExpectedVersionV4,
 }
 
-impl Base64EncUuid {
-    pub fn new() -> Base64EncUuid {
+impl ToString for SessionId {
+    fn to_string(&self) -> String {
+        self.es.to_string()
+    }
+}
+
+impl FromStr for SessionId {
+    type Err = bool;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        SessionId::from_str(s)
+    }
+}
+
+impl Serialize for SessionId {
+    fn serialize<S>(&self, ss: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        let mut st = ss.serialize_struct("Base64EncUuid", 1)?;
+        st.serialize_field("sessionId", &self.to_string())?;
+        st.end()
+    }
+}
+
+impl SessionId {
+    pub fn new() -> SessionId {
         let rb: [u8; 16] = Uuid::new_v4().into_bytes();
         let es: String = BASE64_NOPAD.encode(&rb);
-        Base64EncUuid { rb, es }
+        SessionId {
+            rb,
+            es: ["sid_", &es].concat(),
+        }
     }
 
-    pub fn from_uuid_v4(s: &str) -> Result<Base64EncUuid, Base64EncUuidErr> {
+    pub fn from_str(s: &str) -> Result<Self, bool> {
+        Self::decode(s)
+            .map(|r| Self { rb: r.0, es: r.1 })
+            .map_err(|_| false)
+    }
+
+    pub fn from_uuid_v4(s: &str) -> Result<SessionId, Base64EncUuidErr> {
         match Uuid::from_str(s) {
             Ok(uuid) => {
                 return if uuid.get_version_num() == 4 {
-                    Ok(Base64EncUuid {
+                    Ok(SessionId {
                         rb: *uuid.as_bytes(),
                         es: BASE64_NOPAD.encode(uuid.as_bytes()),
                     })
@@ -886,18 +922,18 @@ impl FIPMaskedAccRefNum {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct SessionCipherParam {
-    val: String, // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH"
-}
-
-impl SessionCipherParam {
-    pub fn deserialize_from_str<'de, D>(d: D) -> Result<SessionCipherParam, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(d).map(|id| SessionCipherParam { val: id.to_owned() })
-    }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum KeyMaterialFormat {
+    #[serde(rename = "BASE64_NOPAD")]
+    Base64NoPadding,
+    #[serde(rename = "BASE64_URL_NOPAD")]
+    Base64UrlNoPadding,
+    #[serde(rename = "HEX")]
+    HEX,
+    #[serde(rename = "PEM")]
+    PEM,
+    #[serde(rename = "DER")]
+    DER,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -910,39 +946,58 @@ pub struct LinkedAccEncData {
 }
 
 // contains the public information for performing the ECDH key exchange.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DHPublicKey {
     // expiration of the public key.
+    #[serde(rename = "expiry", deserialize_with = "UtcTs::deserialize_from_str")]
     expiry: UtcTs,
     // defines public parameters used to calculate session key (for data encryption and decryption).
     // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH"
-    params: Option<SessionCipherParam>,
+    #[serde(rename = "Parameters", skip_serializing_if = "Option::is_none")]
+    params: Option<String>,
     // the value of ephemeral public key
+    #[serde(rename = "KeyValue")]
     pub val_ephemeral_pub_key: Bytes,
 }
 
 // cryptographic parameters for end-to-end data encryption.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyMaterial {
     // Currently, only ECDH is supported.
+    #[serde(rename = "cryptoAlg")]
     pub crypto_alg: EncryptAlg,
+    #[serde(rename = "curve")]
     pub curve: Curve,
     // specifies the secure standard cryptographic primitives to perform end to end encryption.
     // Use key-value pair separated by a semicolon.
     // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH - symmetric encryption(AES-256 bits, GCM-128 bits and No Padding) and key exchange protocol(ECDH).
+    #[serde(rename = "params", skip_serializing_if = "Option::is_none")]
     pub params: Option<String>,
+    #[serde(rename = "DHPublicKey")]
     pub dh_pub_key: DHPublicKey,
     // ref: https://tools.ietf.org/html/rfc5116 - An Interface and Algorithms for Authenticated Encryption. January 2008.
+    #[serde(rename = "Nonce")]
     pub nonce: Bytes,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct AccOwnerConsentProof {
     // unique id generated by AA after the account holder authorizes the consent request.
-    consent_id: Bytes,
+    #[serde(rename = "id")]
+    consent_id: String,
     // signature part of the consent JWS.
     // The receiver has to verify if the given signature matches the signature in the original consent JWS.
+    #[serde(rename = "digitalSignature")]
     signature: Bytes,
+}
+
+impl AccOwnerConsentProof {
+    pub fn consent_id(&self) -> String {
+        self.consent_id.clone()
+    }
+    pub fn signature(&self) -> &[u8] {
+        self.signature.as_ref()
+    }
 }
 
 // linked account's metadata and the encrypted data for accessing the finanical informati
@@ -1539,19 +1594,19 @@ where
 
 #[cfg(test)]
 mod types {
-    use super::Base64EncUuid;
     use super::Base64EncUuidErr;
+    use super::SessionId;
 
     #[test]
     fn good_base64_uuid_decode_01() {
-        let enc_uuid = Base64EncUuid::decode("za7VbYcSQU2zRgGQXQAm/g");
+        let enc_uuid = SessionId::decode("za7VbYcSQU2zRgGQXQAm/g");
         assert!(enc_uuid.is_ok());
         let (_, uuid) = enc_uuid.unwrap();
         assert_eq!(uuid, "cdaed56d-8712-414d-b346-01905d0026fe");
     }
     #[test]
     fn good_base64_uuid_from_uuidv4_str_01() {
-        let res = Base64EncUuid::from_uuid_v4("d8f9b1d6-c513-4587-8337-38c5dd6ae009");
+        let res = SessionId::from_uuid_v4("d8f9b1d6-c513-4587-8337-38c5dd6ae009");
         assert!(res.is_ok());
         let uuid_enc = res.unwrap();
         assert_eq!(uuid_enc.es.len(), 22);
@@ -1559,46 +1614,46 @@ mod types {
     #[test]
 
     fn good_base64_uuid_from_uuidv4_str_02() {
-        let res = Base64EncUuid::from_uuid_v4("cdaed56d-8712-414d-b346-01905d0026fe");
+        let res = SessionId::from_uuid_v4("cdaed56d-8712-414d-b346-01905d0026fe");
         assert!(res.is_ok());
         let uuid_enc = res.unwrap();
         assert_eq!(uuid_enc.es, "za7VbYcSQU2zRgGQXQAm/g");
     }
     #[test]
     fn good_base64_uuid_from_uuidv4_str_03() {
-        let res = Base64EncUuid::from_uuid_v4("6fcb514b-b878-4c9d-95b7-8dc3a7ce6fd8");
+        let res = SessionId::from_uuid_v4("6fcb514b-b878-4c9d-95b7-8dc3a7ce6fd8");
         assert!(res.is_ok());
         let uuid_enc = res.unwrap();
         assert_eq!(uuid_enc.es, "b8tRS7h4TJ2Vt43Dp85v2A");
     }
     #[test]
     fn good_base64_uuid_decode_03() {
-        let enc_uuid = Base64EncUuid::decode("b8tRS7h4TJ2Vt43Dp85v2A");
+        let enc_uuid = SessionId::decode("b8tRS7h4TJ2Vt43Dp85v2A");
         assert!(enc_uuid.is_ok());
         let (_, uuid) = enc_uuid.unwrap();
         assert_eq!(uuid, "6fcb514b-b878-4c9d-95b7-8dc3a7ce6fd8");
     }
     #[test]
     fn fail_base64_uuid_decode_bad_bytes() {
-        let enc_uuid = Base64EncUuid::decode("za7VbYcSQU2zRgGQXQAm");
+        let enc_uuid = SessionId::decode("za7VbYcSQU2zRgGQXQAm");
         assert!(enc_uuid.is_err());
         assert_eq!(enc_uuid, Err(Base64EncUuidErr::BadByteArray));
     }
     #[test]
     fn fail_base64_uuid_decode_bad_base64() {
-        let enc_uuid = Base64EncUuid::decode("za7VbYcSQU2zRgGQXQAm/s");
+        let enc_uuid = SessionId::decode("za7VbYcSQU2zRgGQXQAm/s");
         assert!(enc_uuid.is_err());
         assert_eq!(enc_uuid, Err(Base64EncUuidErr::BadBase64));
     }
     #[test]
     fn fail_base64_uuid_from_uuidv5_str() {
-        let res = Base64EncUuid::from_uuid_v4("74738ff5-5367-5958-9aee-98fffdcd1876");
+        let res = SessionId::from_uuid_v4("74738ff5-5367-5958-9aee-98fffdcd1876");
         assert!(res.is_err());
         assert_eq!(res, Err(Base64EncUuidErr::ExpectedVersionV4))
     }
     #[test]
     fn fail_base64_uuid_from_uuidv3_str() {
-        let res = Base64EncUuid::from_uuid_v4("faf9b6a6-b660-3457-83aa-a8873179edfd");
+        let res = SessionId::from_uuid_v4("faf9b6a6-b660-3457-83aa-a8873179edfd");
         assert!(res.is_err());
         assert_eq!(res, Err(Base64EncUuidErr::ExpectedVersionV4))
     }
