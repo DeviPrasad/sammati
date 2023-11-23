@@ -85,7 +85,7 @@ impl HttpMethod for HttpReqProc {
         // 'content-type' must be 'application/json'
         match check_content_type_application_json(&hp) {
             Ok(_) => match unpack_body(body) {
-                Ok(body_json) => match __unauthenticated_dispatch__(&uri, &hp, &body_json) {
+                Ok(body_json) => match authenticated_dispatch(&uri, &hp, &body_json) {
                     Ok(good) => hs::answer(good),
                     Err(bad) => hs::flag(bad),
                 },
@@ -740,6 +740,59 @@ MC4CAQAwBQYDK2VwBCIEILISPPYTpXnbOO1z7CyMOM32H5Mw0VmMsstn36dH0l+P
             let jws = jws.unwrap();
             eprintln!(
                 "test_unencoded_sammati_fi_req_es256 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
+        //
+        //
+        let fi_fetch_req_json=br#"{"ver":"2.0.0","timestamp":"2023-11-23T19:23:05.505Z","txnid":"fcd8ca5c-f791-4a4f-967e-fc8a5a34a93d","sessionId":"zfjGs2BVS9GQq4imZzpuig","fipId":"fip_a32ef1af-18c0-471d-b494-6e918fa8ba00_AlphaDigiFinBank","linkRefNumber":["SqrVhuCsQlmoiiIn5Pgpiw","R_0tJRgqQDGGVT4kXFli_A"]}"#;
+        {
+            let kd = KeyDesc::from_alg_kid(SignatureAlgorithm::HS512, FIP_WAP_HS512_KID_01);
+            let header_hs512 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::HS512)
+                .unencoded()
+                .kid(FIP_WAP_HS512_KID_01)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+            let jws = jws.sign(&kd, &header_hs512, fi_fetch_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_fi_fetch_req_hs512 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_fi_fetch_req_hs512 - unencoded-jws[2] {:#?}",
+                String::from_utf8(jws.clone()).unwrap()
+            );
+        }
+        {
+            let kd = KeyDesc::from_alg_kid(
+                SignatureAlgorithm::EdDSA,
+                &String::from_utf8(KID_ED25519_PRIVATE_KEY_02.to_vec()).unwrap(),
+            );
+            let header_ed25519 = JwsHeaderBuilder::new()
+                .alg(SignatureAlgorithm::EdDSA)
+                .unencoded()
+                .kid(KID_ED25519_PUBLIC_KEY_02)
+                .critical(vec!["b64".to_owned()])
+                .build()
+                .unwrap();
+
+            let jws = jws.sign(&kd, &header_ed25519, fi_fetch_req_json);
+            if jws.is_err() {
+                eprintln!(
+                    "test_unencoded_sammati_fi_fetch_req_ed25519 - unencoded-jws[1] {:#?}",
+                    jws
+                );
+            }
+            assert!(jws.is_ok());
+            let jws = jws.unwrap();
+            eprintln!(
+                "test_unencoded_sammati_fi_fetch_req_ed25519 - unencoded-jws[2] {:#?}",
                 String::from_utf8(jws.clone()).unwrap()
             );
         }

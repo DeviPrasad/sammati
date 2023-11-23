@@ -1,8 +1,7 @@
-
 curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/FI/fetch'\
     -H 'Accept: application/json'\
     -H 'Content-Type: application/json'\
-    -H 'x-jws-signature: eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6IktJQ0FnSUNBZ0lDQWdJQ0FnSW5WdWFYUWlPaUFpVFU5T1ZFZ2lMQTBLSUMifQ..KjAP4KwmUWkckAq7l-MQwB5LGutP4qY1Css3exdu2PO36qK8m8Pvr5Om_OJ8UWr_LTYQ9XeTDlYfwWYbqDGtCg'\
+    -H 'x-jws-signature: eyJhbGciOiJIUzUxMiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6IkdSVmozS3FvcTJRZTdXTHFJMGRLU2Vjak1KZGNwTE9hWFZYZndRZWtrRGMifQ..4tKxQw683TCW9yc8eE5Uba-2rP52ICh6iyH9aXoeWBtpGCE_NVFtJcxigCN_7NXp2e7Hp-UqnkcGopFcA5K34w'\
     -H 'x-sammati-api-key: b351804dfcdc5fd1aed0263f775f'\
     -d '{"ver":"2.0.0","timestamp":"2023-11-23T19:23:05.505Z","txnid":"fcd8ca5c-f791-4a4f-967e-fc8a5a34a93d","sessionId":"zfjGs2BVS9GQq4imZzpuig","fipId":"fip_a32ef1af-18c0-471d-b494-6e918fa8ba00_AlphaDigiFinBank","linkRefNumber":["SqrVhuCsQlmoiiIn5Pgpiw","R_0tJRgqQDGGVT4kXFli_A"]}'
 
@@ -20,17 +19,3 @@ curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/FI/fetch'\
             "fipId": "fip_a32ef1af-18c0-471d-b494-6e918fa8ba00_AlphaDigiFinBank",
             "linkRefNumber": ["SqrVhuCsQlmoiiIn5Pgpiw", "R_0tJRgqQDGGVT4kXFli_A"]
         }'
-
-oZNivFUNS+SPigAA9U1QzQ
-eLQuFAB1QRyWY_DHYxUX4Q
-oUSCSgEEQCqw1wlGT_kiSw
-R_0tJRgqQDGGVT4kXFli_A
-SqrVhuCsQlmoiiIn5Pgpiw
-FMiXuPLFQwu7yINCqBt-yQ
-UQk9E_8ZSaufMhe33Yh6CA
-Uj8RweXQRh-Lj5J0CrI5Vw
-d8bkw3SeStW-nS7SFMUV4A
-zfjGs2BVS9GQq4imZzpuig
-
-,
-            
