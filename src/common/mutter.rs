@@ -87,6 +87,7 @@ pub enum Mutter {
     InvalidTxId = 40030,
     InvalidConsentId = 40032,
     InvalidOneTimeToken = 40033,
+    EmptyAccRefIdList = 40034,
 }
 
 impl Mutter {

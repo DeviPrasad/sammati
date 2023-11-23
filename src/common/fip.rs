@@ -3,7 +3,7 @@
 // https://api.rebit.org.in/viewSpec/FIP_2_0_0.yaml
 use crate::ts::{TimePeriod, UtcTs};
 use crate::types::{
-    AccOwnerConsentProof, ConsentId, ConsentUse, FIPAccDesc, FIPAccLinkRef, FIPAccLinkReqRefNum,
+    AccOwnerConsentProof, ConsentId, ConsentUse, FIPAccDesc, FIPAccLinkRefId, FIPAccLinkReqRefNum,
     FIPAccLinkStatus, FIPAccLinkToken, FIPAccLinkingAuthType, FIPAccOwner,
     FIPAccOwnerAccDescriptors, FIPAccOwnerConsentStatus, FIPAccOwnerLinkedAccRef,
     FIPAccOwnerLinkedAccStatus, FIPConfirmAccLinkingStatus, FIPId, FIType, FinInfo, Interface,
@@ -486,7 +486,7 @@ impl InterfaceResponse for FIResp {
 
 // API to fetch financial information from FIP once AA receives the data ready notification.
 // request to fetch FI data from FIP with a session id.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct FIFetchReq {
     // (required) API version = "2.0.0"
     #[serde(rename = "ver")]
@@ -499,13 +499,39 @@ pub struct FIFetchReq {
     pub tx_id: TxId,
     // A session ID is a base64 encoded UUID number.
     // FIP gives out a fresh session id for each financial information access request from AA.
+    #[serde(
+        rename = "sessionId",
+        deserialize_with = "SessionId::deserialize_from_str"
+    )]
     pub session_id: SessionId,
     // FIP ID as defined in the Account Aggregator Ecosystem.
     // optional feild.
+    #[serde(
+        rename = "fipId",
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "FIPId::deserialize_from_str"
+    )]
     pub fip_id: Option<FIPId>,
     // Unique reference number assigned by FIP as part of Account Linking Process.
     // optional feild.
-    pub link_ref_num: Option<Vec<FIPAccLinkRef>>,
+    #[serde(
+        rename = "linkRefNumber",
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "FIPAccLinkRefId::deserialize_from_str"
+    )]
+    pub link_ref_num: Option<Vec<FIPAccLinkRefId>>,
+}
+
+impl Interface for FIFetchReq {
+    fn path() -> &'static str {
+        "FI/fetch"
+    }
+
+    fn txid_as_string(&self) -> String {
+        self.tx_id.to_string()
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -516,11 +542,44 @@ pub struct FIFetchResp {
     // (required) creation timestamp of the message.
     #[serde(rename = "timestamp", flatten)]
     pub timestamp: UtcTs,
+    #[serde(rename = "uts")]
+    uts: i64,
     // unique transaction identifier used for providing end-to-end traceability.
     #[serde(rename = "txnid", flatten)]
     pub tx_id: TxId,
     // account-specific metadata and encrypted FI of the account
     pub fi: Vec<FinInfo>,
+}
+
+impl FIFetchResp {
+    pub fn new(fr: &FIFetchReq, fi: Vec<FinInfo>) -> Self {
+        Self::v2(fr, fi)
+    }
+
+    pub fn v2(fr: &FIFetchReq, fi: Vec<FinInfo>) -> Self {
+        let t: UtcTs = UtcTs::now();
+        FIFetchResp {
+            ver: "2.0.0".to_string(),
+            uts: t.ts,
+            timestamp: t,
+            tx_id: fr.tx_id.clone(),
+            fi,
+        }
+    }
+
+    pub fn mock_response(fr: &FIFetchReq) -> Self {
+        let fi: Vec<FinInfo> = Vec::<FinInfo>::new();
+        Self::new(fr, fi)
+    }
+}
+
+impl InterfaceResponse for FIFetchResp {
+    fn code(&self) -> u32 {
+        200 as u32
+    }
+    fn json(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
 }
 
 // Notification about the status of consent

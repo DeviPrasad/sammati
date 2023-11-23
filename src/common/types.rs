@@ -625,6 +625,7 @@ impl TxId {
             _ => Err(false),
         }
     }
+
     #[allow(dead_code)]
     pub fn from_ascii(s: &str) -> Result<TxId, bool> {
         if s.len() > 0 && s.is_ascii() {
@@ -652,9 +653,8 @@ impl TxId {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SessionId {
-    //#[serde(skip)]
-    pub rb: [u8; 16],
-    pub es: String,
+    pub id: String,
+    pub uuid: String,
 }
 
 pub type UuidRep = ([u8; 16], String);
@@ -669,7 +669,7 @@ pub enum Base64EncUuidErr {
 
 impl ToString for SessionId {
     fn to_string(&self) -> String {
-        self.es.to_string()
+        self.id.to_string()
     }
 }
 
@@ -693,17 +693,27 @@ impl Serialize for SessionId {
 
 impl SessionId {
     pub fn new() -> SessionId {
-        let rb: [u8; 16] = Uuid::new_v4().into_bytes();
-        let es: String = BASE64_NOPAD.encode(&rb);
+        let _uuid: &Uuid = &Uuid::new_v4();
         SessionId {
-            rb,
-            es: ["sid_", &es].concat(),
+            id: BASE64_NOPAD.encode(&_uuid.into_bytes()),
+            uuid: _uuid.to_string(),
         }
     }
 
+    pub fn deserialize_from_str<'de, D>(d: D) -> Result<SessionId, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let sid = String::deserialize(d)?;
+        Self::from_str(&sid).map_err(D::Error::custom)
+    }
+
     pub fn from_str(s: &str) -> Result<Self, bool> {
-        Self::decode(s)
-            .map(|r| Self { rb: r.0, es: r.1 })
+        Self::decode(&s)
+            .map(|r| Self {
+                id: s.to_string(),
+                uuid: r.1,
+            })
             .map_err(|_| false)
     }
 
@@ -712,19 +722,19 @@ impl SessionId {
             Ok(uuid) => {
                 return if uuid.get_version_num() == 4 {
                     Ok(SessionId {
-                        rb: *uuid.as_bytes(),
-                        es: BASE64_NOPAD.encode(uuid.as_bytes()),
+                        id: s.to_string(),
+                        uuid: BASE64_NOPAD.encode(uuid.as_bytes()),
                     })
                 } else {
                     Err(Base64EncUuidErr::ExpectedVersionV4)
-                }
+                };
             }
             _ => Err(Base64EncUuidErr::BadUuidStr),
         }
     }
 
     pub fn copy_enc(&self, t: &mut String) -> bool {
-        t.write_str(&self.es).is_ok()
+        t.write_str(&self.uuid).is_ok()
     }
 
     pub fn decode(s: &str) -> Result<UuidRep, Base64EncUuidErr> {
@@ -816,7 +826,22 @@ impl FromStr for AccOwnerIdCategory {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPId {
+    #[serde(rename = "fipId")]
     val: String,
+}
+
+impl FIPId {
+    pub fn from(s: &str) -> Self {
+        Self { val: s.to_string() }
+    }
+    pub fn deserialize_from_str<'de, D>(d: D) -> Result<Option<FIPId>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(d)
+            .map(|s| Some(FIPId::from(&s)))
+            .map_err(D::Error::custom)
+    }
 }
 
 // discovered account information.
@@ -864,14 +889,52 @@ pub struct FIPLinkedAccDesc {
     masked_acc_num: FIPMaskedAccNum,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FIPAccLinkRefId {
+    #[serde(rename = "id")]
+    id: String,
+}
+
+impl FIPAccLinkRefId {
+    pub fn from(s: &str) -> Self {
+        Self { id: s.to_string() }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            id: BASE64_NOPAD.encode(&Uuid::new_v4().into_bytes()),
+        }
+    }
+
+    pub fn deserialize_from_str<'de, D>(d: D) -> Result<Option<Vec<FIPAccLinkRefId>>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let vec_ids = Vec::<String>::deserialize(d)?;
+        if !vec_ids.is_empty() {
+            let res: Vec<FIPAccLinkRefId> =
+                vec_ids.iter().map(|s| FIPAccLinkRefId::from(s)).collect();
+            Ok(Some(res))
+        } else {
+            Err(Mutter::EmptyAccRefIdList).map_err(D::Error::custom)
+        }
+    }
+}
+
 // Unique FIP Account Reference Number which will be usually linked with a masked account number.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPAccLinkRef {
-    #[serde(rename = "linkRefNumber")]
+    #[serde(rename = "id")]
     val: String,
 }
 
 impl FIPAccLinkRef {
+    pub fn new() -> Self {
+        Self {
+            val: BASE64_NOPAD.encode(&Uuid::new_v4().into_bytes()),
+        }
+    }
+
     pub fn from(s: &str) -> Self {
         Self { val: s.to_string() }
     }
@@ -880,7 +943,7 @@ impl FIPAccLinkRef {
     where
         D: serde::Deserializer<'de>,
     {
-        String::deserialize(d).map(|id| FIPAccLinkRef { val: id.to_owned() })
+        String::deserialize(d).map(|id| FIPAccLinkRef::from(&id))
     }
 }
 
@@ -898,7 +961,7 @@ impl FIPMaskedAccNum {
     where
         D: serde::Deserializer<'de>,
     {
-        String::deserialize(d).map(|id| FIPMaskedAccNum { val: id.to_owned() })
+        String::deserialize(d).map(|id| FIPMaskedAccNum::from(&id))
     }
 }
 
@@ -918,7 +981,7 @@ impl FIPMaskedAccRefNum {
     where
         D: serde::Deserializer<'de>,
     {
-        String::deserialize(d).map(|id| FIPMaskedAccRefNum { val: id.to_owned() })
+        String::deserialize(d).map(|id| FIPMaskedAccRefNum::from(&id))
     }
 }
 
@@ -1609,7 +1672,7 @@ mod types {
         let res = SessionId::from_uuid_v4("d8f9b1d6-c513-4587-8337-38c5dd6ae009");
         assert!(res.is_ok());
         let uuid_enc = res.unwrap();
-        assert_eq!(uuid_enc.es.len(), 22);
+        assert_eq!(uuid_enc.uuid.len(), 22);
     }
     #[test]
 
@@ -1617,14 +1680,14 @@ mod types {
         let res = SessionId::from_uuid_v4("cdaed56d-8712-414d-b346-01905d0026fe");
         assert!(res.is_ok());
         let uuid_enc = res.unwrap();
-        assert_eq!(uuid_enc.es, "za7VbYcSQU2zRgGQXQAm/g");
+        assert_eq!(uuid_enc.uuid, "za7VbYcSQU2zRgGQXQAm/g");
     }
     #[test]
     fn good_base64_uuid_from_uuidv4_str_03() {
         let res = SessionId::from_uuid_v4("6fcb514b-b878-4c9d-95b7-8dc3a7ce6fd8");
         assert!(res.is_ok());
         let uuid_enc = res.unwrap();
-        assert_eq!(uuid_enc.es, "b8tRS7h4TJ2Vt43Dp85v2A");
+        assert_eq!(uuid_enc.uuid, "b8tRS7h4TJ2Vt43Dp85v2A");
     }
     #[test]
     fn good_base64_uuid_decode_03() {

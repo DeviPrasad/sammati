@@ -85,7 +85,7 @@ impl HttpMethod for HttpReqProc {
         // 'content-type' must be 'application/json'
         match check_content_type_application_json(&hp) {
             Ok(_) => match unpack_body(body) {
-                Ok(body_json) => match authenticated_dispatch(&uri, &hp, &body_json) {
+                Ok(body_json) => match __unauthenticated_dispatch__(&uri, &hp, &body_json) {
                     Ok(good) => hs::answer(good),
                     Err(bad) => hs::flag(bad),
                 },
@@ -180,18 +180,17 @@ fn dispatch(
             log::info!("FIP POST /Accounts/link/verify");
             let lvr = Type::from_json::<fip::FIPAccLinkVerifyReq>(&json, &hp)?;
             log::info!("/Accounts/link/verify {lvr:#?}");
-
             Ok(Box::new(fip::FIPAccLinkVerifyResp::mock_response(&lvr)))
         }
         "/FI/request" => {
-            log::info!("FIP POST /FI/request");
             let fir = Type::from_json::<fip::FIRequest>(&json, &hp)?;
-            log::info!("/Accounts/link/verify {fir:#?}");
+            log::info!("FIP POST /FI/request {fir:#?}");
             Ok(Box::new(fip::FIResp::mock_response(&fir)))
         }
         "/FI/fetch" => {
-            log::info!("FIP POST /FI/fetch");
-            Err(hs::error_unimplemented_request("/FI/fetch"))
+            let fi_fetch_req = Type::from_json::<fip::FIFetchReq>(&json, &hp)?;
+            log::info!("FIP POST /FI/request {fi_fetch_req:#?}");
+            Ok(Box::new(fip::FIFetchResp::mock_response(&fi_fetch_req)))
         }
         "/Consent/Notification" => {
             log::info!("FIP POST /Consent/Notification");

@@ -36,13 +36,3 @@ curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/FI/request'\
                 "Nonce": "46474a88a0c66a38e70c0629"
             }
         }'
-
-oZNivFUNS+SPigAA9U1QzQ
-eLQuFAB1QRyWY_DHYxUX4Q
-oUSCSgEEQCqw1wlGT_kiSw
-R_0tJRgqQDGGVT4kXFli_A
-SqrVhuCsQlmoiiIn5Pgpiw
-FMiXuPLFQwu7yINCqBt-yQ
-UQk9E_8ZSaufMhe33Yh6CA
-Uj8RweXQRh-Lj5J0CrI5Vw
-d8bkw3SeStW-nS7SFMUV4A
