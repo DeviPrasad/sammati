@@ -2,7 +2,7 @@
 
 use crate::hs::Headers;
 use crate::mutter::Mutter;
-use crate::ts::{ConsentUtc, UtcTs};
+use crate::ts::{ConsentUtc, ExpiryTimestamp, UtcTs};
 //
 // changelogs from 1.2.0
 // https://specifications.rebit.org.in/api_schema/account_aggregator/AA_ChangeLog_2_0_0.txt
@@ -328,14 +328,16 @@ pub enum FIPAccLinkStatus {
     FAILED,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum EncryptAlg {
+    #[default]
     ECDH,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum Curve {
     Curve25519,
+    #[default]
     X25519,
 }
 
@@ -924,7 +926,7 @@ impl FIPAccLinkRefId {
 // Unique FIP Account Reference Number which will be usually linked with a masked account number.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPAccLinkRef {
-    #[serde(rename = "id")]
+    #[serde(rename = "linkRefNumber")]
     val: String,
 }
 
@@ -949,12 +951,15 @@ impl FIPAccLinkRef {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FIPMaskedAccNum {
-    val: String,
+    #[serde(rename = "maskedAccNumber")]
+    masked_acc_num: String,
 }
 
 impl FIPMaskedAccNum {
     pub fn from(s: &str) -> Self {
-        Self { val: s.to_string() }
+        Self {
+            masked_acc_num: s.to_string(),
+        }
     }
 
     pub fn deserialize_from_str<'de, D>(d: D) -> Result<FIPMaskedAccNum, D::Error>
@@ -969,12 +974,14 @@ impl FIPMaskedAccNum {
 #[derive(Clone, Debug, Serialize)]
 pub struct FIPMaskedAccRefNum {
     #[serde(rename = "accRefNumber")]
-    val: String,
+    masked_acc_ref_num: String,
 }
 
 impl FIPMaskedAccRefNum {
     pub fn from(s: &str) -> Self {
-        Self { val: s.to_string() }
+        Self {
+            masked_acc_ref_num: s.to_string(),
+        }
     }
 
     pub fn deserialize_from_str<'de, D>(d: D) -> Result<FIPMaskedAccRefNum, D::Error>
@@ -985,11 +992,33 @@ impl FIPMaskedAccRefNum {
     }
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct LinkedAccEncData {
+    // reference number assigned by FIP as part of Account Linking Process.
+    #[serde(rename = "linkRefNumber", flatten)]
+    pub link_ref_num: FIPAccLinkRef,
+    #[serde(rename = "maskedAccNumber", flatten)]
+    pub masked_acc_num: FIPMaskedAccNum,
+    // end-to-end encrypted financial information
+    #[serde(rename = "encryptedFI")]
+    pub encrypted_fi: Bytes,
+}
+
+impl LinkedAccEncData {
+    pub fn from(link_ref: FIPAccLinkRef, acc_num: FIPMaskedAccNum, data: Bytes) -> Self {
+        Self {
+            link_ref_num: link_ref,
+            masked_acc_num: acc_num,
+            encrypted_fi: data,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum KeyMaterialFormat {
-    #[serde(rename = "BASE64_NOPAD")]
+    #[serde(rename = "OCTET_BASE64_NOPAD")]
     Base64NoPadding,
-    #[serde(rename = "BASE64_URL_NOPAD")]
+    #[serde(rename = "OCTET_BASE64_URL_NOPAD")]
     Base64UrlNoPadding,
     #[serde(rename = "HEX")]
     HEX,
@@ -999,48 +1028,93 @@ pub enum KeyMaterialFormat {
     DER,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct LinkedAccEncData {
-    // reference number assigned by FIP as part of Account Linking Process.
-    pub link_ref_num: FIPAccLinkRef,
-    pub masked_acc_num: FIPMaskedAccNum,
-    // end-to-end encrypted financial information
-    pub encrypted_fi: Bytes,
-}
-
 // contains the public information for performing the ECDH key exchange.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DHPublicKey {
     // expiration of the public key.
-    #[serde(rename = "expiry", deserialize_with = "UtcTs::deserialize_from_str")]
-    expiry: UtcTs,
+    #[serde(
+        rename = "expiry",
+        flatten,
+        deserialize_with = "ExpiryTimestamp::deserialize_from_str"
+    )]
+    expiry: ExpiryTimestamp,
     // defines public parameters used to calculate session key (for data encryption and decryption).
     // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH"
-    #[serde(rename = "Parameters", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "Parameters",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     params: Option<String>,
     // the value of ephemeral public key
     #[serde(rename = "KeyValue")]
-    pub val_ephemeral_pub_key: Bytes,
+    pub pub_key: String,
+}
+
+// TODO: create a builder abstraction - DHPublicKeyBuilder
+impl DHPublicKey {
+    pub fn from(params: &str, pub_key: String) -> Self {
+        Self {
+            expiry: ExpiryTimestamp(UtcTs::now()),
+            params: Some(params.to_string()),
+            pub_key,
+        }
+    }
 }
 
 // cryptographic parameters for end-to-end data encryption.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyMaterial {
     // Currently, only ECDH is supported.
-    #[serde(rename = "cryptoAlg")]
+    #[serde(rename = "cryptoAlg", default)]
     pub crypto_alg: EncryptAlg,
-    #[serde(rename = "curve")]
+    #[serde(rename = "curve", default)]
     pub curve: Curve,
     // specifies the secure standard cryptographic primitives to perform end to end encryption.
     // Use key-value pair separated by a semicolon.
     // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH - symmetric encryption(AES-256 bits, GCM-128 bits and No Padding) and key exchange protocol(ECDH).
-    #[serde(rename = "params", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "params", default, skip_serializing_if = "Option::is_none")]
     pub params: Option<String>,
     #[serde(rename = "DHPublicKey")]
     pub dh_pub_key: DHPublicKey,
     // ref: https://tools.ietf.org/html/rfc5116 - An Interface and Algorithms for Authenticated Encryption. January 2008.
     #[serde(rename = "Nonce")]
     pub nonce: Bytes,
+}
+
+impl KeyMaterial {
+    pub fn from(dh_pk_desc: DHPublicKey, nonce: Bytes) -> Self {
+        Self {
+            crypto_alg: EncryptAlg::ECDH,
+            curve: Curve::default(),
+            params: Some("cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH".to_string()),
+            dh_pub_key: dh_pk_desc,
+            nonce,
+        }
+    }
+}
+
+// linked account's metadata and the encrypted data for accessing the finanical informati
+#[derive(Clone, Debug, Serialize)]
+pub struct FinInfo {
+    // FIP ID as defined in the Account Aggregator Ecosystem.
+    #[serde(rename = "fipID")]
+    pub fip_id: FIPId,
+    #[serde(rename = "data")]
+    pub data: Vec<LinkedAccEncData>,
+    #[serde(rename = "KeyMaterial")]
+    pub key_material: KeyMaterial,
+}
+
+// TODO: create a builder abstraction - FinInfoBuilder
+impl FinInfo {
+    pub fn from(fip_id: FIPId, acc_data: LinkedAccEncData, km: KeyMaterial) -> Self {
+        Self {
+            fip_id,
+            data: vec![acc_data],
+            key_material: km,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1061,15 +1135,6 @@ impl AccOwnerConsentProof {
     pub fn signature(&self) -> &[u8] {
         self.signature.as_ref()
     }
-}
-
-// linked account's metadata and the encrypted data for accessing the finanical informati
-#[derive(Clone, Debug, Serialize)]
-pub struct FinInfo {
-    // FIP ID as defined in the Account Aggregator Ecosystem.
-    pub fip_id: FIPId,
-    pub data: Vec<LinkedAccEncData>,
-    pub key_material: KeyMaterial,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -43,6 +43,32 @@ impl Serialize for UtcTs {
 }
 
 #[derive(Debug, Clone)]
+pub struct ExpiryTimestamp(pub UtcTs);
+
+impl Serialize for ExpiryTimestamp {
+    fn serialize<S>(&self, ss: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        let mut st = ss.serialize_struct("ExpiryTimestamp", 1)?;
+        st.serialize_field("expiry", &self.0.to_string())?;
+        st.end()
+    }
+}
+
+impl ExpiryTimestamp {
+    pub fn deserialize_from_str<'de, D>(deserializer: D) -> Result<ExpiryTimestamp, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        UtcTs::from_str(&s)
+            .map(|ts| Self(ts))
+            .map_err(Error::custom)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct DepositAccTxTimestamp(pub UtcTs);
 impl Serialize for DepositAccTxTimestamp {
     fn serialize<S>(&self, ss: S) -> Result<S::Ok, S::Error>

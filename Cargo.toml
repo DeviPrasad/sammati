@@ -43,9 +43,8 @@ path = "src/common/lib.rs"
 
 # last updated on 16-august-2023, Thursday
 [dependencies]
-aes-gcm = { version = "^0.10" }
+#aes-gcm = { version = "^0.10" }
 async-trait = { version = "0.1" }
-boring = { version = "^4" }
 bytes = { version = "1", features = ["serde"] }
 # chacha20poly1305 = { version = "^0.10" }
 chrono = { version = "0", features = ["clock", "serde", "std"]}
@@ -53,19 +52,19 @@ chrono-tz = { version = "0" }
 clap = { version = "4", features = ["default", "derive"] }
 data-encoding = { version = "2" }
 dull = { path = "../../dull/jwtse/rust/dull", package = "dull" }
-ed25519-dalek = { version = "^2.0", features = ["alloc", "asm", "digest", "pem", "pkcs8", "std"] }
+#ed25519-dalek = { version = "^2.0", features = ["alloc", "asm", "digest", "pem", "pkcs8", "std"] }
 env_logger = { version = "0" }
-hkdf = { version = "^0" }
-hyper = { version = "0", features = ["http1", "http2", "server", "tcp", "runtime", "stream"] }
+#hkdf = { version = "^0" }
+hyper = { version = "^0", features = ["http1", "http2", "server", "tcp", "runtime", "stream"] }
 log = { version = "0" }
-rand_core = { version = "0.6" }
+#rand_core = { version = "0.6" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1" }
-sha2 = {version = "0.10.8" }
+#sha2 = {version = "0.10.8" }
 tokio = { version = "1.32", features = ["net", "macros", "process", "rt-multi-thread", "sync", "time"] }
 #url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = [ "v4"] }
-x25519-dalek = { version = "^2.0", features = ["static_secrets"] }
+#x25519-dalek = { version = "^2.0", features = ["static_secrets"] }
 
 [dev-dependencies]
 

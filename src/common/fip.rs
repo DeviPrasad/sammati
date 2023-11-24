@@ -1,15 +1,18 @@
 #![allow(dead_code)]
 
+use crate::deposit;
 // https://api.rebit.org.in/viewSpec/FIP_2_0_0.yaml
 use crate::ts::{TimePeriod, UtcTs};
 use crate::types::{
-    AccOwnerConsentProof, ConsentId, ConsentUse, FIPAccDesc, FIPAccLinkRefId, FIPAccLinkReqRefNum,
-    FIPAccLinkStatus, FIPAccLinkToken, FIPAccLinkingAuthType, FIPAccOwner,
+    AccOwnerConsentProof, ConsentId, ConsentUse, DHPublicKey, FIPAccDesc, FIPAccLinkRefId,
+    FIPAccLinkReqRefNum, FIPAccLinkStatus, FIPAccLinkToken, FIPAccLinkingAuthType, FIPAccOwner,
     FIPAccOwnerAccDescriptors, FIPAccOwnerConsentStatus, FIPAccOwnerLinkedAccRef,
     FIPAccOwnerLinkedAccStatus, FIPConfirmAccLinkingStatus, FIPId, FIType, FinInfo, Interface,
     InterfaceResponse, KeyMaterial, Notifier, SessionId, TxId, UserConsentStatus,
 };
 use bytes::Bytes;
+use data_encoding::BASE64URL_NOPAD;
+use dull::jwa;
 use serde::{Deserialize, Serialize};
 
 // API managed by FIP
@@ -547,7 +550,8 @@ pub struct FIFetchResp {
     // unique transaction identifier used for providing end-to-end traceability.
     #[serde(rename = "txnid", flatten)]
     pub tx_id: TxId,
-    // account-specific metadata and encrypted FI of the account
+    // cryptographic metadata for the session, and the encrypted FI of the account
+    #[serde(rename = "FI")]
     pub fi: Vec<FinInfo>,
 }
 
@@ -568,8 +572,20 @@ impl FIFetchResp {
     }
 
     pub fn mock_response(fr: &FIFetchReq) -> Self {
-        let fi: Vec<FinInfo> = Vec::<FinInfo>::new();
-        Self::new(fr, fi)
+        let deposit_acc_data = deposit::DepositAccountFI::instance_mock_001();
+        let json_deposit_acc_data = serde_json::to_string(&deposit_acc_data).unwrap();
+        let encrypted_acc_data = json_deposit_acc_data;
+        let lrf: crate::types::FIPAccLinkRef = crate::types::FIPAccLinkRef::new();
+        let man = crate::types::FIPMaskedAccNum::from("XXXXXXXXXXXXX0753468");
+        let acc_data = crate::types::LinkedAccEncData::from(lrf, man, encrypted_acc_data.into());
+        let nonce = jwa::random_bytes(32);
+        let dh_pk_desc: DHPublicKey = DHPublicKey::from(
+            "publicKeyEncoding=HEX;nonceEncoding=HEX;nonceLen=32",
+            "4d4d4d4dc5c5c5c5b3b3b3b38a8a8a8a".to_string(),
+        );
+        let km = KeyMaterial::from(dh_pk_desc, nonce.into());
+        let fin_info = FinInfo::from(FIPId::from("fip_Mock_Sammati_FIP_ID"), acc_data, km);
+        Self::new(fr, vec![fin_info])
     }
 }
 
@@ -708,6 +724,34 @@ impl InterfaceResponse for ConsentArtefactResp {
     }
 }
 
+// a 128-bit (16 octet) cryptographic random number.
+// base64url-encoded so it can be used in http requests.
+pub struct RefNum {
+    n: [u8; 16],
+}
+
+impl RefNum {
+    pub fn new() -> RefNum {
+        RefNum {
+            n: dull::jwa::random_bytes(16).try_into().unwrap(),
+        }
+    }
+
+    pub fn encode(&self) -> String {
+        BASE64URL_NOPAD.encode(&self.n)
+    }
+
+    pub fn from(s: &str) -> Result<Self, crate::mutter::Mutter> {
+        if s.len() == 22 {
+            if let Ok(v) = BASE64URL_NOPAD.decode(s.as_bytes()) {
+                if let Ok(octets) = TryInto::<[u8; 16]>::try_into(v) {
+                    return Ok(Self { n: octets });
+                }
+            }
+        }
+        Err(crate::mutter::Mutter::BadArgVal)
+    }
+}
 /* example ConsentArtefactReq
 {
     "consentStart": "2019-05-28T11:38:20.380+0000",

@@ -237,6 +237,157 @@ pub struct AccTx {
     exchagne_rate: Option<String>,
 }
 
+impl DepositAccountFI {
+    pub fn instance_mock_001() -> Self {
+        let dr_upi_tx_01 = AccTx {
+            amount: 2500.00,
+            tx_type: TransactionType::Debit,
+            mode: TransactionMode::UPI,
+            cur_balance: "72961.37".to_string(),
+            tx_ts: DepositAccTxTimestamp(UtcTs::from_str("2023-09-01 10:12:52Z").unwrap()),
+            value_date: NaiveDate::parse_from_str("01-09-2023", "%d-%m-%Y").unwrap(),
+            tx_id: "f4184fc596403b9d638783cf57adfe4c".to_string(),
+            narration: "UPI-SATISH KUMAR MUDIPU-q602152501@ ybl-UBIN0988891-324513654321-UPI Value Dt 01/09/2023 Ref 655513691567".to_string(),
+            reference: "1234484525682".to_string(),
+            currency: Some("INR".to_string()),
+            exchagne_rate: None,
+        };
+        let dr_upi_tx_02 = AccTx {
+            amount: 431.53,
+            tx_type: TransactionType::Debit,
+            mode: TransactionMode::UPI,
+            cur_balance: "72529.84".to_string(),
+            tx_ts: DepositAccTxTimestamp(UtcTs::from_str("2023-09-02 16:34:31Z").unwrap()),
+            value_date: NaiveDate::parse_from_str("02-09-2023", "%d-%m-%Y").unwrap(),
+            tx_id: "c75c605f6356fbc91338530e9831e9e1".to_string(),
+            narration: "UPI-Tall Fig Tree Entertainment-tallfigtreeentertainmentltd.rzp@icici-ICIC0DC0011-324567898555-Pay via Sharppay Value Dt 02/09/2023 Ref 324567898555".to_string(),
+            reference: "884501777322".to_string(),
+            currency: Some("INR".to_string()),
+            exchagne_rate: None,
+        };
+        let cr_neft_tx_01 = AccTx {
+            amount: 20000.00,
+            tx_type: TransactionType::Credit,
+            mode: TransactionMode::FundTransfer,
+            cur_balance: "92529.84".to_string(),
+            tx_ts: DepositAccTxTimestamp(UtcTs::from_str("2023-09-05 11:04:28Z").unwrap()),
+            value_date: NaiveDate::parse_from_str("05-09-2023", "%d-%m-%Y").unwrap(),
+            tx_id: "4cfead57cf8387639d3b4096c54f18f4".to_string(),
+            narration: "NEFT Cr-ECOB0014222-MEDIUM BUCKS FINANCE Ltd-Devi Prasad-P255980233152930 Value Dt 05/09/2023 Ref P345189234567890".to_string(),
+            reference: "P345189234567890".to_string(),
+            currency: Some("INR".to_string()),
+            exchagne_rate: None,
+        };
+        let dr_card_tx_03 = AccTx {
+            amount: 10459.00,
+            tx_type: TransactionType::Debit,
+            mode: TransactionMode::Card,
+            cur_balance: "82070.84".to_string(),
+            tx_ts: DepositAccTxTimestamp(UtcTs::from_str("2023-10-07 16:34:31Z").unwrap()),
+            value_date: NaiveDate::parse_from_str("07-10-2023", "%d-%m-%Y").unwrap(),
+            tx_id: "c75c605f6356fbc91338530e9831e9e1".to_string(),
+            narration: "CC 000185432XXXXXX5274 Autopay SI-TAD Value Dt 07/10/2023 Ref 619839568"
+                .to_string(),
+            reference: "619839568".to_string(),
+            currency: Some("INR".to_string()),
+            exchagne_rate: None,
+        };
+        let dr_atm_tx_04 = AccTx {
+            amount: 3500.00,
+            tx_type: TransactionType::Debit,
+            mode: TransactionMode::ATM,
+            cur_balance: "78570.84".to_string(),
+            tx_ts: DepositAccTxTimestamp(UtcTs::from_str("2023-10-29 10:50:18Z").unwrap()),
+            value_date: NaiveDate::parse_from_str("29-10-2023", "%d-%m-%Y").unwrap(),
+            tx_id: "a17b6714ee1f0e68bebb44a74b1efd51".to_string(),
+            narration: "ATW-512967XXXXXX0618-S1ACMN04-KARKTI Value Dt 29/10/2023 Ref 8743"
+                .to_string(),
+            reference: "8743".to_string(),
+            currency: Some("INR".to_string()),
+            exchagne_rate: None,
+        };
+        // Credit Interest Capitalised
+        let cr_other_tx_02 = AccTx {
+            amount: 6186.12,
+            tx_type: TransactionType::Credit,
+            mode: TransactionMode::Others,
+            cur_balance: "84756.96".to_string(),
+            tx_ts: DepositAccTxTimestamp(UtcTs::from_str("2023-10-31 11:04:28Z").unwrap()),
+            value_date: NaiveDate::parse_from_str("31-10-2023", "%d-%m-%Y").unwrap(),
+            tx_id: "4b8a0e3e2357e806b6cdb1f70b54c3a3".to_string(),
+            narration: "Credit Interest Capitalised Value Dt 31/10/2023".to_string(),
+            reference: "".to_string(),
+            currency: Some("INR".to_string()),
+            exchagne_rate: None,
+        };
+        let _jdtx01 = serde_json::to_string(&dr_upi_tx_01);
+        let _jdtx02 = serde_json::to_string(&dr_upi_tx_02);
+        let _jctx01 = serde_json::to_string(&cr_neft_tx_01);
+        let _jdtx03 = serde_json::to_string(&dr_card_tx_03);
+        let _jdtx04 = serde_json::to_string(&dr_atm_tx_04);
+        let _jctx02 = serde_json::to_string(&cr_other_tx_02);
+
+        let acc_tx_stmt = AccTxStatement {
+            start_date: NaiveDate::parse_from_str("01-09-2023", "%d-%m-%Y").unwrap(),
+            end_date: NaiveDate::parse_from_str("31-10-2023", "%d-%m-%Y").unwrap(),
+            txs: vec![
+                dr_upi_tx_01,
+                dr_upi_tx_02,
+                cr_neft_tx_01,
+                dr_card_tx_03,
+                dr_atm_tx_04,
+                cr_other_tx_02,
+            ],
+        };
+
+        let dp_linked_acc_summary = AccSummary {
+            current_balance: "20152.47".into(),
+            balance_ts: "2023-11-21 15:27:31Z".into(),
+            acc_type: DepositAccountType::Savings,
+            branch: "MAIN BRANCH, NAMMA NAGARA".into(),
+            facility: SummaryFacility::None,
+            ifsc_code: "DIGI0000981".into(),
+            micr_code: "462400091".into(),
+            opening_date: NaiveDate::parse_from_str("01-01-2000", "%d-%m-%Y").unwrap(),
+            cur_overdraft_limit: "".into(),
+            drawing_limit: "".into(),
+            status: AccountStatus::Active,
+            pending: vec![],
+        };
+
+        let dp_profile = AccHolderProfile {
+            name: "Devi Prasad M".into(),
+            ckyc_compliance: true,
+            dob: NaiveDate::parse_from_str("12-04-1967", "%d-%m-%Y").unwrap(),
+            mobile: "9990000222".into(),
+            nominee: HoldingNominee::Registered,
+            address: Some("HOUSE NO: 2/B01/D4, Tall Tree Apartments. LOCATION: Bright Avenue, Busy Road, New Town. CITY: Namma Nagara. PINCODE: 876543. STATE: Karunadu.".into()),
+            landline: None,
+            email: Some("tiny_rust_box@monad.io".into()),
+            pan: Some("RUSTY0224Z".to_string()),
+        };
+
+        let dp_profile_details = AccountHolderProfile {
+            holders: AccHolderProfileData {
+                holder_type: AccHolderType::Single,
+                holder: vec![dp_profile],
+            },
+        };
+
+        let dp_linked_acc_fi = DepositAccountFI {
+            version: "2.0.0".into(),
+            acc_type: DepositAccount::Deposit,
+            masked_acc_num: "XXXXINBBNNXXXXXX3280753468".into(),
+            linked_acc_ref: "adB0000570926453147364ebfc812345".into(),
+            profile: dp_profile_details,
+            summary: dp_linked_acc_summary,
+            txs: acc_tx_stmt,
+        };
+
+        dp_linked_acc_fi
+    }
+}
+
 #[cfg(test)]
 mod fi_schema_deposit {
     use chrono::NaiveDate;
