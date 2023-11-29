@@ -62,7 +62,7 @@ impl Default for Kube {
 
 impl HttpMethod for HttpReqProc {
     fn get(&self, req: Request<Body>) -> InfallibleResult {
-        log::info!("FIP App Proxy - HttpMethod::HttpPost::proc {:#?}", req);
+        log::info!("FIP App Proxy - HttpMethod::HttpPost::proc GET {req:#?}");
         let (head, body) = req.into_parts();
         match body.size_ok(0) {
             Ok(_) => {
@@ -81,11 +81,10 @@ impl HttpMethod for HttpReqProc {
         log::info!("FIP App Proxy - HttpMethod::HttpPost");
         let (head, body) = req.into_parts();
         let (uri, hp) = (head.uri.clone(), Headers::from(head.headers));
-
         // 'content-type' must be 'application/json'
         match check_content_type_application_json(&hp) {
             Ok(_) => match unpack_body(body) {
-                Ok(body_json) => match authenticated_dispatch(&uri, &hp, &body_json) {
+                Ok(body_json) => match __unauthenticated_dispatch__(&uri, &hp, &body_json) {
                     Ok(good) => hs::answer(good),
                     Err(bad) => hs::flag(bad),
                 },
@@ -150,7 +149,10 @@ fn dispatch(
     hp: &Headers,
     json: &String,
 ) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
-    log::info!("FIP App Proxy - HttpMethod::HttpPost::proc {hp:#?}");
+    log::info!(
+        "FIP App Proxy - HttpMethod::HttpPost::proc {hp:#?} {:#?}",
+        uri.path()
+    );
     match uri.path() {
         "/Accounts/discover" => {
             log::info!("FIP POST /Accounts/discover");
@@ -211,9 +213,13 @@ fn dispatch(
 }
 
 fn check_content_type_application_json(hp: &Headers) -> Result<(), ValidationError> {
-    if hp
-        .probe("Content-Type")
-        .is_some_and(|ct| ct.eq_ignore_ascii_case("application/json"))
+    let ct = hp.probe("Content-Type");
+    if ct.is_none()
+        || ct.is_some_and(|ct| {
+            let mut s = ct.split(";");
+            let ct = s.next().unwrap();
+            ct.eq_ignore_ascii_case("application/json")
+        })
     {
         Ok(())
     } else {

@@ -275,13 +275,14 @@ impl Headers {
     }
 }
 
-pub trait BodyTrait: Sync + Send {
+pub trait BodyTrait {
     const POST_REQUEST_PAYLOAD_SIZE_MAX: u64 = (32 * 1024);
     fn size_ok(&self, max_size: u64) -> Result<u64, u64>;
     fn read(body: Body) -> Result<String, Mutter>;
 }
 
 impl BodyTrait for Body {
+    const POST_REQUEST_PAYLOAD_SIZE_MAX: u64 = (32 * 1024);
     fn size_ok(&self, size_max: u64) -> Result<u64, u64> {
         match self.size_hint().upper() {
             Some(v) => {
