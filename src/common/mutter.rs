@@ -69,6 +69,7 @@ pub enum Mutter {
     BadRequestArgs = 40057,
     SignatureVerificationFailed = 40062,
     InvalidDetachedSignature = 40065,
+    DatEncryptionError = 40068,
 
     BadSocket = 40080,
     BadAddrString = 40081,

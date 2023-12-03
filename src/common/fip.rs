@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::deposit;
+use crate::encrypt::{DataEncryptor, DataFIUserContext};
 // https://api.rebit.org.in/viewSpec/FIP_2_0_0.yaml
 use crate::ts::{TimePeriod, UtcTs};
 use crate::types::{
@@ -8,11 +9,10 @@ use crate::types::{
     FIPAccLinkReqRefNum, FIPAccLinkStatus, FIPAccLinkToken, FIPAccLinkingAuthType, FIPAccOwner,
     FIPAccOwnerAccDescriptors, FIPAccOwnerConsentStatus, FIPAccOwnerLinkedAccRef,
     FIPAccOwnerLinkedAccStatus, FIPConfirmAccLinkingStatus, FIPId, FIType, FinInfo, Interface,
-    InterfaceResponse, KeyMaterial, Notifier, SessionId, TxId, UserConsentStatus,
+    InterfaceResponse, KeyMaterial, Notifier, PeerType, SessionId, TxId, UserConsentStatus,
 };
 use bytes::Bytes;
-use data_encoding::BASE64URL_NOPAD;
-use dull::jwa;
+use data_encoding::{BASE64, BASE64URL_NOPAD};
 use serde::{Deserialize, Serialize};
 
 // API managed by FIP
@@ -574,18 +574,40 @@ impl FIFetchResp {
     pub fn mock_response(fr: &FIFetchReq) -> Self {
         let deposit_acc_data = deposit::DepositAccountFI::instance_mock_001();
         let json_deposit_acc_data = serde_json::to_string(&deposit_acc_data).unwrap();
-        let encrypted_acc_data = json_deposit_acc_data;
+        //let encrypted_acc_data = json_deposit_acc_data;
+        let fiu_ctx: DataFIUserContext = DataFIUserContext::from(
+            "cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH",
+            "publicKeyEncoding=base64;nonceEncoding=base64;nonceLen=32",
+            PeerType::FIU,
+            "in.sammati.fiu:c276e12ec21ebfeb1f712ebc6f1",
+            &fr.tx_id.to_string(),
+            "eLQuFAB1QRyWY_DHYxUX4Q",
+            "in.sammati.fip:ebfeb1f712ebc6f1c276e12ec21",
+            "BWnQkbogTRKDwMqqKhn/OfR8CsskXEnVsifDh1B92g0=".into(),
+            "vkUaYhfumdvt0/MrC+779hotX3AdntZtLT77Px/n2Xo=".into(),
+            vec![],
+        );
+        let encrypted_data_ctx = DataEncryptor::encrypt(json_deposit_acc_data.into(), &fiu_ctx)
+            .expect("encryption should succeed");
         let lrf: crate::types::FIPAccLinkRef = crate::types::FIPAccLinkRef::new();
         let man = crate::types::FIPMaskedAccNum::from("XXXXXXXXXXXXX0753468");
-        let acc_data = crate::types::LinkedAccEncData::from(lrf, man, encrypted_acc_data.into());
-        let nonce = jwa::random_bytes(32);
+        let acc_data =
+            crate::types::LinkedAccEncData::from(lrf, man, encrypted_data_ctx.data.into());
+        let fip_kd_nonce_b64 = BASE64.encode(encrypted_data_ctx.kd_nonce.as_ref());
+        let fip_kd_info_b64 = BASE64.encode(&encrypted_data_ctx.kd_info.as_ref());
+        let fip_dh_pub_key_b64 = BASE64.encode(encrypted_data_ctx.dh_pub_key.as_ref());
         let dh_pk_desc: DHPublicKey = DHPublicKey::from(
-            "publicKeyEncoding=HEX;nonceEncoding=HEX;nonceLen=32",
-            "4d4d4d4dc5c5c5c5b3b3b3b38a8a8a8a".to_string(),
+            "publicKeyEncoding=base64;nonceEncoding=base64;nonceLen=32",
+            fip_dh_pub_key_b64,
         );
-        let km = KeyMaterial::from(dh_pk_desc, nonce.into());
-        let fin_info = FinInfo::from(FIPId::from("fip_Mock_Sammati_FIP_ID"), acc_data, km);
-        Self::new(fr, vec![fin_info])
+        let km = KeyMaterial::from(
+            dh_pk_desc,
+            fip_kd_nonce_b64.into(),
+            Some(fip_kd_info_b64),
+            None,
+        );
+        let acc_fi = FinInfo::from(FIPId::from(&encrypted_data_ctx.fip_id), acc_data, km);
+        Self::new(fr, vec![acc_fi])
     }
 }
 

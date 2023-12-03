@@ -86,6 +86,16 @@ impl Type {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum PeerType {
+    #[serde(rename = "AA")]
+    AA,
+    #[serde(rename = "FIP")]
+    FIP,
+    #[serde(rename = "FIU")]
+    FIU,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HealthOkResp<T: serde::Serialize> {
     #[serde(rename = "version")]
     pub ver: String,
@@ -879,7 +889,7 @@ pub struct FIPLinkedAccDesc {
     #[serde(rename = "FIType")]
     fi_type: FIType,
     // FIP ID as defined in the Account Aggregator Ecosystem.
-    #[serde(rename = "fipId")]
+    #[serde(rename = "fipId", flatten)]
     fip_id: FIPId,
     // account Type or Sub FI Type
     #[serde(rename = "accType")]
@@ -1001,11 +1011,11 @@ pub struct LinkedAccEncData {
     pub masked_acc_num: FIPMaskedAccNum,
     // end-to-end encrypted financial information
     #[serde(rename = "encryptedFI")]
-    pub encrypted_fi: Bytes,
+    pub encrypted_fi: Vec<u8>,
 }
 
 impl LinkedAccEncData {
-    pub fn from(link_ref: FIPAccLinkRef, acc_num: FIPMaskedAccNum, data: Bytes) -> Self {
+    pub fn from(link_ref: FIPAccLinkRef, acc_num: FIPMaskedAccNum, data: Vec<u8>) -> Self {
         Self {
             link_ref_num: link_ref,
             masked_acc_num: acc_num,
@@ -1079,17 +1089,28 @@ pub struct KeyMaterial {
     pub dh_pub_key: DHPublicKey,
     // ref: https://tools.ietf.org/html/rfc5116 - An Interface and Algorithms for Authenticated Encryption. January 2008.
     #[serde(rename = "Nonce")]
-    pub nonce: Bytes,
+    pub kd_nonce: String,
+    #[serde(rename = "ContextInfo", skip_serializing_if = "Option::is_none")]
+    pub kd_info: Option<String>,
+    #[serde(rename = "CipherNonce", skip_serializing_if = "Option::is_none")]
+    pub cipher_nonce: Option<String>,
 }
 
 impl KeyMaterial {
-    pub fn from(dh_pk_desc: DHPublicKey, nonce: Bytes) -> Self {
+    pub fn from(
+        dh_pk_desc: DHPublicKey,
+        kd_nonce: String,
+        kd_info: Option<String>,
+        cipher_nonce: Option<String>,
+    ) -> Self {
         Self {
             crypto_alg: EncryptAlg::ECDH,
             curve: Curve::default(),
             params: Some("cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH".to_string()),
             dh_pub_key: dh_pk_desc,
-            nonce,
+            kd_nonce: kd_nonce,
+            kd_info,
+            cipher_nonce,
         }
     }
 }
@@ -1098,7 +1119,7 @@ impl KeyMaterial {
 #[derive(Clone, Debug, Serialize)]
 pub struct FinInfo {
     // FIP ID as defined in the Account Aggregator Ecosystem.
-    #[serde(rename = "fipID")]
+    #[serde(rename = "fipID", flatten)]
     pub fip_id: FIPId,
     #[serde(rename = "data")]
     pub data: Vec<LinkedAccEncData>,

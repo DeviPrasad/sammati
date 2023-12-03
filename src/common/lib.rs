@@ -3,6 +3,7 @@
 pub mod aa;
 pub mod cfg;
 pub mod deposit;
+pub mod encrypt;
 pub mod fip;
 pub mod fiu;
 pub mod hs;
