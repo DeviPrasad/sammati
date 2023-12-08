@@ -1,14 +1,18 @@
 use crate::mutter::Mutter;
+use crate::tokiort;
 use crate::{cfg::Config, types::ValidationError};
+
 use async_trait::async_trait;
+use bytes::{Buf, Bytes};
 use data_encoding::BASE64;
-use hyper::{
-    body::HttpBody,
-    header,
-    server::conn::AddrStream,
-    service::{make_service_fn, service_fn},
-    Body, HeaderMap, Method, Request, Response, Server,
-};
+use http_body_util::{combinators::BoxBody, BodyExt, Full};
+use hyper::header;
+use hyper::{body::Incoming as IncomingBody, HeaderMap, Method, Request, Response};
+
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use tokio::net::TcpListener;
+
 use log::{error, info, warn};
 use std::{
     convert::Infallible,
@@ -24,7 +28,11 @@ use crate::types::{
     Empty, ErrResp, ErrorCode, HealthOkResp, InterfaceResponse, ServiceHealthStatus,
 };
 
-pub type InfallibleResult = Result<Response<Body>, Infallible>;
+pub type InfallibleResult = Result<Response<BoxBody<Bytes, Infallible>>, Infallible>;
+
+fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, Infallible> {
+    Full::new(chunk.into()).map_err(|e| e).boxed()
+}
 
 pub static HTTP_PROC: OnceLock<Pin<Box<dyn HttpMethod>>> = OnceLock::new();
 
@@ -41,25 +49,25 @@ pub fn flag_http_method_forbidden(em: &str) -> InfallibleResult {
 
 #[async_trait]
 pub trait HttpMethod: Sync + Send {
-    fn delete(&self, _: Request<Body>) -> InfallibleResult {
+    fn delete(&self, _: Request<IncomingBody>) -> InfallibleResult {
         flag_http_method_forbidden("HTTP method DELETE not supported")
     }
-    fn get(&self, _: Request<Body>) -> InfallibleResult {
+    fn get(&self, _: Request<IncomingBody>) -> InfallibleResult {
         flag_http_method_forbidden("HTTP method GET not supported")
     }
-    fn head(&self, _: Request<Body>) -> InfallibleResult {
+    fn head(&self, _: Request<IncomingBody>) -> InfallibleResult {
         flag_http_method_forbidden("HTTP method HEAD not supported")
     }
-    fn options(&self, _: Request<Body>) -> InfallibleResult {
+    fn options(&self, _: Request<IncomingBody>) -> InfallibleResult {
         flag_http_method_forbidden("HTTP method OPTIONS not supported")
     }
-    fn patch(&self, _: Request<Body>) -> InfallibleResult {
+    fn patch(&self, _: Request<IncomingBody>) -> InfallibleResult {
         flag_http_method_forbidden("HTTP method PATCH not supported")
     }
-    fn post(&self, _: Request<Body>) -> InfallibleResult {
+    fn post(&self, _: Request<IncomingBody>) -> InfallibleResult {
         flag_http_method_forbidden("HTTP method POST not supported")
     }
-    fn put(&self, _: Request<Body>) -> InfallibleResult {
+    fn put(&self, _: Request<IncomingBody>) -> InfallibleResult {
         flag_http_method_forbidden("HTTP method PUT not supported")
     }
 }
@@ -71,6 +79,7 @@ pub struct HttpEndpoint {
     sock: Option<SocketAddr>,
     // cfg: Config,
 }
+
 #[allow(dead_code)]
 impl HttpEndpoint {
     fn new(
@@ -86,6 +95,7 @@ impl HttpEndpoint {
             // cfg: config.clone(),
         }
     }
+
     fn init(cfg: &Config) -> HttpEndpoint {
         let host_addr = cfg.host.address.as_str();
         let sock_addresses = host_addr.to_socket_addrs();
@@ -101,20 +111,23 @@ impl HttpEndpoint {
         }
         HttpEndpoint::new(err, host_addr, sock)
     }
-    async fn run(self: &HttpEndpoint) {
-        let new_service = make_service_fn(|_conn: &AddrStream| async {
-            Ok::<_, Infallible>(service_fn(|req| HttpEndpoint::http_req_proc(req)))
-        });
+
+    async fn run(self: &HttpEndpoint) -> std::io::Result<()> {
         info!("HttpServer trying to bind {}...", self.sock.unwrap());
-        let server =
-            Server::try_bind(&self.sock.unwrap()).map(|builder| builder.serve(new_service));
-        if server.is_err() {
-            error!("HttpServer Server failed to bind to the interface.")
-        } else {
-            warn!("HttpServer Endpoint is active.");
-            let _ = server.unwrap().await;
+        let listener = TcpListener::bind(&self.sock.unwrap()).await?;
+        warn!("HttpServer Endpoint is active.");
+        loop {
+            let (stream, _) = listener.accept().await?;
+            let io = tokiort::TokioIo::new(stream);
+            tokio::task::spawn(async move {
+                let service = service_fn(move |req| HttpEndpoint::http_req_proc(req));
+                if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
+                    println!("Failed to serve connection: {:?}", err);
+                }
+            });
         }
     }
+
     pub async fn start(cfg: &Config) -> Result<(), Mutter> {
         info!("HttpServer::start()");
         let hs: HttpEndpoint = HttpEndpoint::init(cfg);
@@ -124,7 +137,7 @@ impl HttpEndpoint {
                     "Initializing the HttpServer Endpoint <{}>",
                     hs.sock.unwrap()
                 );
-                hs.run().await;
+                let _ = hs.run().await;
                 info!("Stopped HttpServer Endpoint <{}>", hs.sock.unwrap())
             }
             _ => {
@@ -137,7 +150,8 @@ impl HttpEndpoint {
         error!("Quitting...");
         Err(Mutter::Quit)
     }
-    async fn http_req_proc(req: Request<Body>) -> InfallibleResult {
+
+    async fn http_req_proc(req: Request<IncomingBody>) -> InfallibleResult {
         if let Some(hp) = HTTP_PROC.get() {
             match req.method() {
                 &Method::GET => hp.get(req),
@@ -147,14 +161,14 @@ impl HttpEndpoint {
                 &Method::PUT => hp.put(req),
                 &Method::PATCH => hp.patch(req),
                 &Method::HEAD => hp.head(req),
-                _ => Ok(Response::builder().body(Body::empty()).unwrap()),
+                _ => Ok(Response::builder().body(full("")).unwrap()),
             }
         } else {
             error!(
                 "Uninitialized http endpoint {:#?}",
                 req.headers().get("HOST").unwrap()
             );
-            Ok(Response::builder().body(Body::empty()).unwrap())
+            Ok(Response::builder().body(full("")).unwrap())
         }
     }
 }
@@ -278,25 +292,20 @@ impl Headers {
 pub trait BodyTrait {
     const POST_REQUEST_PAYLOAD_SIZE_MAX: u64 = (32 * 1024);
     fn size_ok(&self, max_size: u64) -> Result<u64, u64>;
-    fn read(body: Body) -> Result<String, Mutter>;
+    fn read(body: IncomingBody) -> Result<String, Mutter>;
 }
 
-impl BodyTrait for Body {
+impl BodyTrait for IncomingBody {
     const POST_REQUEST_PAYLOAD_SIZE_MAX: u64 = (32 * 1024);
     fn size_ok(&self, size_max: u64) -> Result<u64, u64> {
-        match self.size_hint().upper() {
-            Some(v) => {
-                if v <= size_max {
-                    Ok(v)
-                } else {
-                    Err(v)
-                }
-            }
-            None => Err(size_max + 1),
+        if size_max <= Self::POST_REQUEST_PAYLOAD_SIZE_MAX {
+            Ok(size_max)
+        } else {
+            Err(Self::POST_REQUEST_PAYLOAD_SIZE_MAX)
         }
     }
 
-    fn read(body: Body) -> Result<String, Mutter> {
+    fn read(body: IncomingBody) -> Result<String, Mutter> {
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 return read_body_string(body).await;
@@ -304,14 +313,15 @@ impl BodyTrait for Body {
         })
     }
 }
-async fn read_body_string(body: Body) -> Result<String, Mutter> {
-    match hyper::body::to_bytes(body).await {
-        Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
-            Ok(body_str) => Ok(body_str),
-            _ => Err(Mutter::HttpBodyStrUtf8Bad),
-        },
-        _ => Err(Mutter::HttpBodyReadingError),
+
+async fn read_body_string(body: IncomingBody) -> Result<String, Mutter> {
+    if let Ok(collected_bytes) = body.collect().await {
+        if let Ok(content) = std::io::read_to_string(collected_bytes.aggregate().reader()) {
+            log::warn!("read_body_string: {:#?}", content);
+            return Ok(content);
+        }
     }
+    Err(Mutter::HttpBodyReadingError)
 }
 
 #[derive(Clone, Debug)]
@@ -334,36 +344,13 @@ pub enum RespCode {
     ServiceUnavailable = 503,
 }
 
-/*
-pub fn answer<T>(t: T) -> InfallibleResult
-where
-    T: serde::Serialize + types::Interface,
-{
-    let rb = Response::builder()
-        .header("Content-Type", "application/json")
-        .header("Cache-Control", "no-store no-cache");
-    // if let Ok(s) = serde_json::to_string::<T>(&t) {
-    if let Ok(s) = t.json() {
-        Ok(rb
-            .status(hyper::StatusCode::OK)
-            .body(Body::from(s))
-            .expect("ok"))
-    } else {
-        Ok(rb
-            .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
-            .body(Body::from("unexpected json serialization error"))
-            .expect("internal server error"))
-    }
-}
-*/
-
 pub fn answer(t: Box<dyn InterfaceResponse>) -> InfallibleResult {
     let rb = Response::builder()
         .header("Content-Type", "application/json")
         .header("Cache-Control", "no-store no-cache");
     Ok(rb
         .status(hyper::StatusCode::OK)
-        .body(Body::from(t.json()))
+        .body(full(t.json()))
         .expect("non-empty "))
 }
 
@@ -373,7 +360,7 @@ pub fn flag(t: Box<dyn InterfaceResponse>) -> InfallibleResult {
         .header("Cache-Control", "no-store no-cache");
     Ok(rb
         .status(t.code() as u16)
-        .body(Body::from(t.json()))
+        .body(full(t.json()))
         .expect("non-empty error response"))
 }
 

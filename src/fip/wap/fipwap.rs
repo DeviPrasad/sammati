@@ -3,7 +3,7 @@
 use std::{pin::Pin, sync::OnceLock};
 
 use dull::{jws::DetachedSig, jwt::Grumble};
-use hyper::{Body, Request};
+use hyper::{body::Incoming as IncomingBody, Request};
 
 use common::{
     cfg::Config,
@@ -37,7 +37,7 @@ pub static MISSING_DETACHED_SIG: &'static str = "Signature missing - cannot auth
 pub static ERROR_READING_HTTP_BODY: &'static str = "Error in reading body content";
 
 impl HttpMethod for HttpReqProc {
-    fn get(&self, req: Request<Body>) -> InfallibleResult {
+    fn get(&self, req: Request<IncomingBody>) -> InfallibleResult {
         log::info!("FIP App Proxy - HttpMethod::HttpPost::proc GET {req:#?}");
         let (head, body) = req.into_parts();
         match body.size_ok(0) {
@@ -53,14 +53,14 @@ impl HttpMethod for HttpReqProc {
         }
     }
 
-    fn post(&self, req: Request<Body>) -> InfallibleResult {
+    fn post(&self, req: Request<IncomingBody>) -> InfallibleResult {
         log::info!("FIP App Proxy - HttpMethod::HttpPost");
         let (head, body) = req.into_parts();
         let (uri, hp) = (head.uri.clone(), Headers::from(head.headers));
         // 'content-type' must be 'application/json'
         match check_content_type_application_json(&hp) {
             Ok(_) => match unpack_body(body) {
-                Ok(body_json) => match authenticated_dispatch(&uri, &hp, &body_json) {
+                Ok(body_json) => match authenticated_dispatch(&uri, &hp, &body_json.to_string()) {
                     Ok(good) => hs::answer(good),
                     Err(bad) => hs::flag(bad),
                 },
@@ -102,9 +102,9 @@ fn authenticated_dispatch(
     }
 }
 
-fn unpack_body(b: Body) -> Result<String, ValidationError> {
-    match b.size_ok(Body::POST_REQUEST_PAYLOAD_SIZE_MAX) {
-        Ok(_) => Body::read(b).map_err(|_| {
+fn unpack_body(b: IncomingBody) -> Result<String, ValidationError> {
+    match b.size_ok(IncomingBody::POST_REQUEST_PAYLOAD_SIZE_MAX) {
+        Ok(_) => IncomingBody::read(b).map_err(|_| {
             ValidationError(
                 ErrorCode::ErrorReadingRequestBody,
                 ERROR_READING_HTTP_BODY.to_owned(),
@@ -114,7 +114,7 @@ fn unpack_body(b: Body) -> Result<String, ValidationError> {
             ErrorCode::PayloadTooLarge,
             format!(
                 "Max permitted size of the payload is {} bytes",
-                Body::POST_REQUEST_PAYLOAD_SIZE_MAX
+                IncomingBody::POST_REQUEST_PAYLOAD_SIZE_MAX
             ),
         )),
     }
@@ -280,6 +280,7 @@ async fn main() {
             }
             #[cfg(not(production))]
             {
+                log::warn!("Warning: running non-production instance...");
                 let mut nks = dull::nickel::NickelKeyStore::default();
                 nickel_cache_init_well_known_sig_keys(&mut nks);
                 _NICKEL_KEY_STORE_.set(nks).expect("nickel keystore");

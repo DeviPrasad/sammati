@@ -1044,7 +1044,7 @@ pub struct DHPublicKey {
     // expiration of the public key.
     #[serde(
         rename = "expiry",
-        flatten,
+        //flatten,
         deserialize_with = "ExpiryTimestamp::deserialize_from_str"
     )]
     expiry: ExpiryTimestamp,
