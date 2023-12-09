@@ -1039,12 +1039,35 @@ pub enum KeyMaterialFormat {
 }
 
 // contains the public information for performing the ECDH key exchange.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DHPublicKey {
+#[derive(Clone, Debug, Deserialize)]
+pub struct DHPublicKeyIncoming {
     // expiration of the public key.
     #[serde(
         rename = "expiry",
-        //flatten,
+        deserialize_with = "ExpiryTimestamp::deserialize_from_str"
+    )]
+    expiry: ExpiryTimestamp,
+    // defines public parameters used to calculate session key (for data encryption and decryption).
+    // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH"
+    #[serde(
+        rename = "Parameters",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    params: Option<String>,
+    // the value of ephemeral public key
+    #[serde(rename = "KeyValue")]
+    pub pub_key: String,
+}
+
+// contains the public information for performing the ECDH key exchange.
+#[derive(Clone, Debug, Serialize)]
+pub struct DHPublicKeyOutgoing {
+    // expiration of the public key.
+    #[serde(
+        rename = "expiry",
+        default,
+        flatten,
         deserialize_with = "ExpiryTimestamp::deserialize_from_str"
     )]
     expiry: ExpiryTimestamp,
@@ -1062,19 +1085,20 @@ pub struct DHPublicKey {
 }
 
 // TODO: create a builder abstraction - DHPublicKeyBuilder
-impl DHPublicKey {
+impl DHPublicKeyOutgoing {
     pub fn from(params: &str, pub_key: String) -> Self {
         Self {
-            expiry: ExpiryTimestamp(UtcTs::now()),
+            expiry: ExpiryTimestamp {
+                expiry: UtcTs::now(),
+            },
             params: Some(params.to_string()),
             pub_key,
         }
     }
 }
 
-// cryptographic parameters for end-to-end data encryption.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyMaterial {
+#[derive(Clone, Debug, Deserialize)]
+pub struct KeyMaterialIncoming {
     // Currently, only ECDH is supported.
     #[serde(rename = "cryptoAlg", default)]
     pub crypto_alg: EncryptAlg,
@@ -1086,7 +1110,7 @@ pub struct KeyMaterial {
     #[serde(rename = "params", default, skip_serializing_if = "Option::is_none")]
     pub params: Option<String>,
     #[serde(rename = "DHPublicKey")]
-    pub dh_pub_key: DHPublicKey,
+    pub dh_pub_key: DHPublicKeyIncoming,
     // ref: https://tools.ietf.org/html/rfc5116 - An Interface and Algorithms for Authenticated Encryption. January 2008.
     #[serde(rename = "Nonce")]
     pub kd_nonce: String,
@@ -1096,9 +1120,33 @@ pub struct KeyMaterial {
     pub cipher_nonce: Option<String>,
 }
 
-impl KeyMaterial {
+// cryptographic parameters for end-to-end data encryption.
+#[derive(Clone, Debug, Serialize)]
+pub struct KeyMaterialOutgoing {
+    // Currently, only ECDH is supported.
+    #[serde(rename = "cryptoAlg", default)]
+    pub crypto_alg: EncryptAlg,
+    #[serde(rename = "curve", default)]
+    pub curve: Curve,
+    // specifies the secure standard cryptographic primitives to perform end to end encryption.
+    // Use key-value pair separated by a semicolon.
+    // ex: cipher=AES/GCM/NoPadding;KeyPairGenerator=ECDH - symmetric encryption(AES-256 bits, GCM-128 bits and No Padding) and key exchange protocol(ECDH).
+    #[serde(rename = "params", default, skip_serializing_if = "Option::is_none")]
+    pub params: Option<String>,
+    #[serde(rename = "DHPublicKey")]
+    pub dh_pub_key: DHPublicKeyOutgoing,
+    // ref: https://tools.ietf.org/html/rfc5116 - An Interface and Algorithms for Authenticated Encryption. January 2008.
+    #[serde(rename = "Nonce")]
+    pub kd_nonce: String,
+    #[serde(rename = "ContextInfo", skip_serializing_if = "Option::is_none")]
+    pub kd_info: Option<String>,
+    #[serde(rename = "CipherNonce", skip_serializing_if = "Option::is_none")]
+    pub cipher_nonce: Option<String>,
+}
+
+impl KeyMaterialOutgoing {
     pub fn from(
-        dh_pk_desc: DHPublicKey,
+        dh_pk_desc: DHPublicKeyOutgoing,
         kd_nonce: String,
         kd_info: Option<String>,
         cipher_nonce: Option<String>,
@@ -1124,12 +1172,12 @@ pub struct FinInfo {
     #[serde(rename = "data")]
     pub data: Vec<LinkedAccEncData>,
     #[serde(rename = "KeyMaterial")]
-    pub key_material: KeyMaterial,
+    pub key_material: KeyMaterialOutgoing,
 }
 
 // TODO: create a builder abstraction - FinInfoBuilder
 impl FinInfo {
-    pub fn from(fip_id: FIPId, acc_data: LinkedAccEncData, km: KeyMaterial) -> Self {
+    pub fn from(fip_id: FIPId, acc_data: LinkedAccEncData, km: KeyMaterialOutgoing) -> Self {
         Self {
             fip_id,
             data: vec![acc_data],

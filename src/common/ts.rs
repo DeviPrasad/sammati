@@ -43,7 +43,9 @@ impl Serialize for UtcTs {
 }
 
 #[derive(Debug, Clone)]
-pub struct ExpiryTimestamp(pub UtcTs);
+pub struct ExpiryTimestamp {
+    pub expiry: UtcTs,
+}
 
 impl Serialize for ExpiryTimestamp {
     fn serialize<S>(&self, ss: S) -> Result<S::Ok, S::Error>
@@ -51,7 +53,7 @@ impl Serialize for ExpiryTimestamp {
         S: serde::ser::Serializer,
     {
         let mut st = ss.serialize_struct("ExpiryTimestamp", 1)?;
-        st.serialize_field("expiry", &self.0.to_string())?;
+        st.serialize_field("expiry", &self.expiry.to_string())?;
         st.end()
     }
 }
@@ -63,7 +65,7 @@ impl ExpiryTimestamp {
     {
         let s = String::deserialize(deserializer)?;
         UtcTs::from_str(&s)
-            .map(|ts| Self(ts))
+            .map(|ts| Self { expiry: ts })
             .map_err(Error::custom)
     }
 }

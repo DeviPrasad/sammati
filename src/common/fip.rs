@@ -5,11 +5,12 @@ use crate::encrypt::{DataEncryptor, DataFIUserContext};
 // https://api.rebit.org.in/viewSpec/FIP_2_0_0.yaml
 use crate::ts::{TimePeriod, UtcTs};
 use crate::types::{
-    AccOwnerConsentProof, ConsentId, ConsentUse, DHPublicKey, FIPAccDesc, FIPAccLinkRefId,
+    AccOwnerConsentProof, ConsentId, ConsentUse, DHPublicKeyOutgoing, FIPAccDesc, FIPAccLinkRefId,
     FIPAccLinkReqRefNum, FIPAccLinkStatus, FIPAccLinkToken, FIPAccLinkingAuthType, FIPAccOwner,
     FIPAccOwnerAccDescriptors, FIPAccOwnerConsentStatus, FIPAccOwnerLinkedAccRef,
     FIPAccOwnerLinkedAccStatus, FIPConfirmAccLinkingStatus, FIPId, FIType, FinInfo, Interface,
-    InterfaceResponse, KeyMaterial, Notifier, PeerType, SessionId, TxId, UserConsentStatus,
+    InterfaceResponse, KeyMaterialIncoming, KeyMaterialOutgoing, Notifier, PeerType, SessionId,
+    TxId, UserConsentStatus,
 };
 use bytes::Bytes;
 use data_encoding::{BASE64, BASE64URL_NOPAD};
@@ -417,7 +418,7 @@ pub struct FIRequest {
     pub fi_data_range: TimePeriod,
     // cryptographic parameters required to perform end-to-end encryption.
     #[serde(rename = "KeyMaterial")]
-    pub key_material: KeyMaterial,
+    pub key_material: KeyMaterialIncoming,
 }
 
 impl Interface for FIRequest {
@@ -596,11 +597,11 @@ impl FIFetchResp {
         let fip_kd_nonce_b64 = BASE64.encode(encrypted_data_ctx.kd_nonce.as_ref());
         let fip_kd_info_b64 = BASE64.encode(&encrypted_data_ctx.kd_info.as_ref());
         let fip_dh_pub_key_b64 = BASE64.encode(encrypted_data_ctx.dh_pub_key.as_ref());
-        let dh_pk_desc: DHPublicKey = DHPublicKey::from(
+        let dh_pk_desc: DHPublicKeyOutgoing = DHPublicKeyOutgoing::from(
             "publicKeyEncoding=base64;nonceEncoding=base64;nonceLen=32",
             fip_dh_pub_key_b64,
         );
-        let km = KeyMaterial::from(
+        let km = KeyMaterialOutgoing::from(
             dh_pk_desc,
             fip_kd_nonce_b64.into(),
             Some(fip_kd_info_b64),

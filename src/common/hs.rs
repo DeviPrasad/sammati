@@ -9,7 +9,6 @@ use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::header;
 use hyper::{body::Incoming as IncomingBody, HeaderMap, Method, Request, Response};
 
-use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use tokio::net::TcpListener;
 
@@ -113,16 +112,21 @@ impl HttpEndpoint {
     }
 
     async fn run(self: &HttpEndpoint) -> std::io::Result<()> {
-        info!("HttpServer trying to bind {}...", self.sock.unwrap());
+        log::info!("HttpServer trying to bind {}...", self.sock.unwrap());
         let listener = TcpListener::bind(&self.sock.unwrap()).await?;
-        warn!("HttpServer Endpoint is active.");
+        log::warn!("HttpServer Endpoint is active.");
         loop {
             let (stream, _) = listener.accept().await?;
             let io = tokiort::TokioIo::new(stream);
             tokio::task::spawn(async move {
                 let service = service_fn(move |req| HttpEndpoint::http_req_proc(req));
-                if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
-                    println!("Failed to serve connection: {:?}", err);
+                let conn = hyper::server::conn::http1::Builder::new()
+                    .max_buf_size(32 * 1024)
+                    .preserve_header_case(true)
+                    .serve_connection(io, service);
+                match conn.await {
+                    Ok(_) => log::info!("Completed serving one request"),
+                    Err(e) => log::error!("Failed to serve HTTP connection: {:?}", e),
                 }
             });
         }
