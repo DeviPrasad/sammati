@@ -2,17 +2,19 @@
 
 use std::{pin::Pin, sync::OnceLock};
 
-use dull::{jws::DetachedSig, jwt::Grumble};
 use hyper::{body::Incoming as IncomingBody, Request};
 
 use common::{
     cfg::Config,
     fip,
-    hs::{self, BodyTrait, Headers, HttpEndpoint, HttpMethod, InfallibleResult, HTTP_PROC},
+    hs::{
+        self, BodyTrait, Headers, HttpCmdDispatcher, HttpEndpoint, HttpMethod, InfallibleResult,
+        HTTP_PROC,
+    },
     mutter::{self, Mutter},
     ts::UtcTs,
     types::{
-        Empty, ErrResp, ErrorCode, FIPAccLinkReqRefNum, FIPAccLinkStatus, FIPAccLinkingAuthType,
+        Empty, ErrResp, FIPAccLinkReqRefNum, FIPAccLinkStatus, FIPAccLinkingAuthType,
         InterfaceResponse, Type, ValidationError,
     },
     CommandlineArgs,
@@ -28,13 +30,6 @@ pub static JWS: OnceLock<Pin<Box<dyn dull::jws::JwsDetachedSigVerifier>>> =
 // _NICKEL_KEY_STORE_ is an implementation detail. It is used to construct 'JWS' defined above.
 pub static _NICKEL_KEY_STORE_: OnceLock<dull::nickel::NickelKeyStore> =
     OnceLock::<dull::nickel::NickelKeyStore>::new();
-
-pub static BAD_CONTENT_TYPE: &'static str = "content-type value must be application/json";
-pub static MISSING_CONTENT_TYPE: &'static str = "missing content-type header parameter";
-pub static JWS_KEYSTORE_ACCESS: &'static str = "JWS keystore access error";
-pub static INVALID_DETACHED_SIG: &'static str = "Invalid detached signature";
-pub static MISSING_DETACHED_SIG: &'static str = "Signature missing - cannot authenticate request";
-pub static ERROR_READING_HTTP_BODY: &'static str = "Error in reading body content";
 
 impl HttpMethod for HttpReqProc {
     fn get(&self, req: Request<IncomingBody>) -> InfallibleResult {
@@ -58,12 +53,14 @@ impl HttpMethod for HttpReqProc {
         let (head, body) = req.into_parts();
         let (uri, hp) = (head.uri.clone(), Headers::from(head.headers));
         // 'content-type' must be 'application/json'
-        match check_content_type_application_json(&hp) {
-            Ok(_) => match unpack_body(body) {
-                Ok(body_json) => match authenticated_dispatch(&uri, &hp, &body_json.to_string()) {
-                    Ok(good) => hs::answer(good),
-                    Err(bad) => hs::flag(bad),
-                },
+        match hs::HttpReq::check_content_type_application_json(&hp) {
+            Ok(_) => match hs::HttpReq::unpack_body(body) {
+                Ok(body_json) => {
+                    match FipHttpCmdDispatcher::new().dispatch(&uri, &hp, &body_json.to_string()) {
+                        Ok(good) => hs::answer(good),
+                        Err(bad) => hs::flag(bad),
+                    }
+                }
                 Err(ValidationError(ec, em)) => {
                     hs::flag_error_ext(ec.to_http_status_code(), ec, &em)
                 }
@@ -73,176 +70,127 @@ impl HttpMethod for HttpReqProc {
     }
 }
 
-fn __unauthenticated_dispatch__(
-    uri: &hyper::Uri,
-    hp: &Headers,
-    json: &String,
-) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
-    dispatch(&uri, &hp, &json)
+#[derive(Debug, Default)]
+struct FipHttpCmdDispatcher {}
+impl FipHttpCmdDispatcher {
+    pub fn new() -> Self {
+        Default::default()
+    }
 }
 
-fn authenticated_dispatch(
-    uri: &hyper::Uri,
-    hp: &Headers,
-    json: &String,
-) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
-    match authenticate_request(&hp, &json) {
-        Ok(_) => dispatch(&uri, &hp, &json),
-        Err(ValidationError(ec, em)) => {
-            // invalid API key, invalid x-jws-signature, invalid dpop
-            Err(Box::new(ErrResp::<Empty>::v2(
-                &hp.tx_id(),
-                &UtcTs::now(),
-                &ec,
-                &em,
-                ec.to_http_status_code(),
-                None,
-            )))
+impl HttpCmdDispatcher for FipHttpCmdDispatcher {
+    fn dispatch(
+        &self,
+        uri: &hyper::Uri,
+        hp: &Headers,
+        json: &String,
+    ) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
+        match hs::HttpReq::authenticate_request(&hp, &json, JWS.get()) {
+            Ok(_) => FipCmd::execute(&uri, &hp, &json),
+            Err(ValidationError(ec, em)) => {
+                // invalid API key, invalid x-jws-signature, invalid dpop
+                Err(Box::new(ErrResp::<Empty>::v2(
+                    &hp.tx_id(),
+                    &UtcTs::now(),
+                    &ec,
+                    &em,
+                    ec.to_http_status_code(),
+                    None,
+                )))
+            }
         }
     }
 }
 
-fn unpack_body(b: IncomingBody) -> Result<String, ValidationError> {
-    match b.size_ok(IncomingBody::POST_REQUEST_PAYLOAD_SIZE_MAX) {
-        Ok(_) => IncomingBody::read(b).map_err(|_| {
-            ValidationError(
-                ErrorCode::ErrorReadingRequestBody,
-                ERROR_READING_HTTP_BODY.to_owned(),
-            )
-        }),
-        _ => Err(ValidationError(
-            ErrorCode::PayloadTooLarge,
-            format!(
-                "Max permitted size of the payload is {} bytes",
-                IncomingBody::POST_REQUEST_PAYLOAD_SIZE_MAX
-            ),
-        )),
+#[derive(Debug, Default)]
+struct UnauthenticatedHttpPostReqDispatcher {}
+impl UnauthenticatedHttpPostReqDispatcher {
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
-fn dispatch(
-    uri: &hyper::Uri,
-    hp: &Headers,
-    json: &String,
-) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
-    log::info!(
-        "FIP App Proxy - HttpMethod::HttpPost::proc {hp:#?} {:#?}",
-        uri.path()
-    );
-    match uri.path() {
-        "/Accounts/discover" => {
-            log::info!("FIP POST /Accounts/discover");
-            let adr: fip::AccDiscoveryReq = Type::from_json::<fip::AccDiscoveryReq>(&json, &hp)?;
-            log::info!("/Accounts/discover {:#?}", adr);
-            Ok(Box::new(fip::AccDiscoveryResp::new(&adr, &Vec::new())))
-        }
-        "/Accounts/link" => {
-            log::info!("FIP POST /Accounts/link");
-            let alr = Type::from_json::<fip::AccLinkReq>(&json, &hp)?;
-            log::info!("/Accounts/link {alr:#?}");
-            let at: FIPAccLinkingAuthType = FIPAccLinkingAuthType::DIRECT;
-            let acc_ref_num = FIPAccLinkReqRefNum::from("f6b1482e-8f08-11e8-862a-02552b0d3c36")
-                .expect("account link ref number");
-            Ok(Box::new(fip::AccLinkResp::new(&alr, &at, &acc_ref_num)))
-        }
-        "/Accounts/delink" => {
-            log::info!("FIP POST /Accounts/delink");
-            let alr = Type::from_json::<fip::AccDelinkReq>(&json, &hp)?;
-            log::info!("/Accounts/delink {alr:#?}");
-            Ok(Box::new(fip::AccDelinkResp::new(
-                &alr,
-                FIPAccLinkStatus::PENDING,
-            )))
-        }
-        "/Accounts/link/verify" => {
-            log::info!("FIP POST /Accounts/link/verify");
-            let lvr = Type::from_json::<fip::FIPAccLinkVerifyReq>(&json, &hp)?;
-            log::info!("/Accounts/link/verify {lvr:#?}");
-            Ok(Box::new(fip::FIPAccLinkVerifyResp::mock_response(&lvr)))
-        }
-        "/FI/request" => {
-            let fir = Type::from_json::<fip::FIRequest>(&json, &hp)?;
-            log::info!("FIP POST /FI/request {fir:#?}");
-            Ok(Box::new(fip::FIResp::mock_response(&fir)))
-        }
-        "/FI/fetch" => {
-            let fi_fetch_req = Type::from_json::<fip::FIFetchReq>(&json, &hp)?;
-            log::info!("FIP POST /FI/request {fi_fetch_req:#?}");
-            let resp = fip::FIFetchResp::mock_response(&fi_fetch_req);
-            Ok(Box::new(resp))
-        }
-        "/Consent/Notification" => {
-            log::info!("FIP POST /Consent/Notification");
-            Err(hs::error_unimplemented_request("/Consent/Notification"))
-        }
-        "/Consent" => {
-            // once the AA obtains a consent artefact, AA shared it with FIP here.
-            log::info!("FIP POST /Consent");
-            let cr = Type::from_json::<fip::ConsentArtefactReq>(&json, &hp)?;
-            log::info!("{:#?}", cr);
-            Ok(Box::new(fip::ConsentArtefactResp::new(&cr)))
-        }
-        _ => {
-            log::error!("FIP unsupported request {}", uri.path());
-            Err(hs::error_unsupported_request(uri.path()))
-        }
+impl HttpCmdDispatcher for UnauthenticatedHttpPostReqDispatcher {
+    fn dispatch(
+        &self,
+        uri: &hyper::Uri,
+        hp: &Headers,
+        json: &String,
+    ) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
+        FipCmd::execute(&uri, &hp, &json)
     }
 }
 
-fn check_content_type_application_json(hp: &Headers) -> Result<(), ValidationError> {
-    let ct = hp.probe("Content-Type");
-    if ct.is_none()
-        || ct.is_some_and(|ct| {
-            let mut s = ct.split(";");
-            let ct = s.next().unwrap();
-            ct.eq_ignore_ascii_case("application/json")
-        })
-    {
-        Ok(())
-    } else {
-        Err(ValidationError(
-            ErrorCode::InvalidRequest,
-            BAD_CONTENT_TYPE.to_owned(),
-        ))
-    }
-}
-
-fn authenticate_request(hp: &Headers, body_json: &String) -> Result<(), ValidationError> {
-    let _dpop = hp.probe("DPoP");
-    let api_key = hp.probe("x-sammati-api-key");
-    let x_jws_sig = hp.probe("x-jws-signature");
-
-    // check if api_key looks ok
-    if api_key.is_none() || api_key.as_ref().is_some_and(|s| s.len() < 16) {
-        Err(ValidationError(
-            ErrorCode::Unauthorized,
-            "Bad API Key".to_owned(),
-        ))
-    } else if let Some(ds) = x_jws_sig {
-        // validate the detached signature and the content payload.
-        match JWS.get() {
-            Some(djv) => djv
-                .verify(&DetachedSig::from(&ds.as_bytes()), &body_json.as_bytes())
-                .map(|_| log::info!("Message signature verified. Request authenticated."))
-                .map_err(|e| {
-                    log::error!("Message signature verification failed");
-                    ValidationError(
-                        match e {
-                            Grumble::Base64EncodingBad => ErrorCode::InvalidBase64Encoding,
-                            Grumble::BadDetachedSignature => ErrorCode::InvalidDetachedSignature,
-                            _ => ErrorCode::SignatureDoesNotMatch,
-                        },
-                        INVALID_DETACHED_SIG.to_owned(),
-                    )
-                }),
-            _ => Err(hs::internal_error(JWS_KEYSTORE_ACCESS)),
+struct FipCmd();
+impl FipCmd {
+    fn execute(
+        uri: &hyper::Uri,
+        hp: &Headers,
+        json: &String,
+    ) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>> {
+        log::info!(
+            "FIP App Proxy - HttpMethod::HttpPost::proc {hp:#?} {:#?}",
+            uri.path()
+        );
+        match uri.path() {
+            "/Accounts/discover" => {
+                log::info!("FIP POST /Accounts/discover");
+                let adr: fip::AccDiscoveryReq =
+                    Type::from_json::<fip::AccDiscoveryReq>(&json, &hp)?;
+                log::info!("/Accounts/discover {:#?}", adr);
+                Ok(Box::new(fip::AccDiscoveryResp::new(&adr, &Vec::new())))
+            }
+            "/Accounts/link" => {
+                log::info!("FIP POST /Accounts/link");
+                let alr = Type::from_json::<fip::AccLinkReq>(&json, &hp)?;
+                log::info!("/Accounts/link {alr:#?}");
+                let at: FIPAccLinkingAuthType = FIPAccLinkingAuthType::DIRECT;
+                let acc_ref_num = FIPAccLinkReqRefNum::from("f6b1482e-8f08-11e8-862a-02552b0d3c36")
+                    .expect("account link ref number");
+                Ok(Box::new(fip::AccLinkResp::new(&alr, &at, &acc_ref_num)))
+            }
+            "/Accounts/delink" => {
+                log::info!("FIP POST /Accounts/delink");
+                let alr = Type::from_json::<fip::AccDelinkReq>(&json, &hp)?;
+                log::info!("/Accounts/delink {alr:#?}");
+                Ok(Box::new(fip::AccDelinkResp::new(
+                    &alr,
+                    FIPAccLinkStatus::PENDING,
+                )))
+            }
+            "/Accounts/link/verify" => {
+                log::info!("FIP POST /Accounts/link/verify");
+                let lvr = Type::from_json::<fip::FIPAccLinkVerifyReq>(&json, &hp)?;
+                log::info!("/Accounts/link/verify {lvr:#?}");
+                Ok(Box::new(fip::FIPAccLinkVerifyResp::mock_response(&lvr)))
+            }
+            "/FI/request" => {
+                let fir = Type::from_json::<fip::FIRequest>(&json, &hp)?;
+                log::info!("FIP POST /FI/request {fir:#?}");
+                Ok(Box::new(fip::FIResp::mock_response(&fir)))
+            }
+            "/FI/fetch" => {
+                let fi_fetch_req = Type::from_json::<fip::FIFetchReq>(&json, &hp)?;
+                log::info!("FIP POST /FI/fetch {fi_fetch_req:#?}");
+                let resp = fip::FIFetchResp::mock_response(&fi_fetch_req);
+                Ok(Box::new(resp))
+            }
+            "/Consent/Notification" => {
+                log::info!("FIP POST /Consent/Notification");
+                Err(hs::error_unimplemented_request("/Consent/Notification"))
+            }
+            "/Consent" => {
+                // once the AA obtains a consent artefact, AA shares it with FIP here.
+                log::info!("FIP POST /Consent");
+                let cr = Type::from_json::<fip::ConsentArtefactReq>(&json, &hp)?;
+                log::info!("{:#?}", cr);
+                Ok(Box::new(fip::ConsentArtefactResp::new(&cr)))
+            }
+            _ => {
+                log::error!("FIP unsupported request {}", uri.path());
+                Err(hs::error_unsupported_request(uri.path()))
+            }
         }
-    } else {
-        log::error!("Message signature missing - forbidden request");
-        Err(ValidationError(
-            ErrorCode::Unauthorized,
-            MISSING_DETACHED_SIG.to_owned(),
-        ))
     }
 }
 

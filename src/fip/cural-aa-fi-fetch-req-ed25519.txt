@@ -1,0 +1,21 @@
+curl -v -X 'POST' 'http://aa-wap.sammati.web3pleb.org:40387/FI/fetch'\
+    -H 'Accept: application/json'\
+    -H 'Content-Type: application/json'\
+    -H 'x-jws-signature: eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6IktJQ0FnSUNBZ0lDQWdJQ0FnSW5WdWFYUWlPaUFpVFU5T1ZFZ2lMQTBLSUMifQ..KjAP4KwmUWkckAq7l-MQwB5LGutP4qY1Css3exdu2PO36qK8m8Pvr5Om_OJ8UWr_LTYQ9XeTDlYfwWYbqDGtCg'\
+    -H 'x-sammati-api-key: b351804dfcdc5fd1aed0263f775f'\
+    -d '{"ver":"2.0.0","timestamp":"2023-11-23T19:23:05.505Z","txnid":"fcd8ca5c-f791-4a4f-967e-fc8a5a34a93d","sessionId":"zfjGs2BVS9GQq4imZzpuig","fipId":"fip_a32ef1af-18c0-471d-b494-6e918fa8ba00_AlphaDigiFinBank","linkRefNumber":["SqrVhuCsQlmoiiIn5Pgpiw","R_0tJRgqQDGGVT4kXFli_A"]}'
+
+
+curl -v -X 'POST' 'http://aa-wap.sammati.web3pleb.org:40387/FI/fetch'\
+    -H 'Accept: application/json'\
+    -H 'Content-Type: application/json'\
+    -H 'x-jws-signature: eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6IktJQ0FnSUNBZ0lDQWdJQ0FnSW5WdWFYUWlPaUFpVFU5T1ZFZ2lMQTBLSUMifQ..WsZOB5Ow4MjMuuqTuDEl4vBxjrAlkHJhELw5O4yba8soNFCWA35Gk1RCqz3iyKn2UbE3r-X4icG3oW8AOvR5Bg'\
+    -H 'x-sammati-api-key: 6d93a4ca2d5a44f2bbceef97e61938aa'\
+    -d '{
+            "ver": "2.0.0",
+            "timestamp": "2023-11-23T19:23:05.505Z",
+            "txnid": "fcd8ca5c-f791-4a4f-967e-fc8a5a34a93d",
+            "sessionId": "zfjGs2BVS9GQq4imZzpuig",
+            "fipId": "fip_a32ef1af-18c0-471d-b494-6e918fa8ba00_AlphaDigiFinBank",
+            "linkRefNumber": ["SqrVhuCsQlmoiiIn5Pgpiw", "R_0tJRgqQDGGVT4kXFli_A"]
+        }'

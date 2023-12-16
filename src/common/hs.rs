@@ -5,6 +5,8 @@ use crate::{cfg::Config, types::ValidationError};
 use async_trait::async_trait;
 use bytes::{Buf, Bytes};
 use data_encoding::BASE64;
+use dull::jws::DetachedSig;
+use dull::jwt::Grumble;
 use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use hyper::header;
 use hyper::{body::Incoming as IncomingBody, HeaderMap, Method, Request, Response};
@@ -28,6 +30,13 @@ use crate::types::{
 };
 
 pub type InfallibleResult = Result<Response<BoxBody<Bytes, Infallible>>, Infallible>;
+
+pub static BAD_CONTENT_TYPE: &'static str = "content-type value must be application/json";
+pub static MISSING_CONTENT_TYPE: &'static str = "missing content-type header parameter";
+pub static JWS_KEYSTORE_ACCESS: &'static str = "JWS keystore access error";
+pub static INVALID_DETACHED_SIG: &'static str = "Invalid detached signature";
+pub static MISSING_DETACHED_SIG: &'static str = "Signature missing - cannot authenticate request";
+pub static ERROR_READING_HTTP_BODY: &'static str = "Error in reading body content";
 
 fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, Infallible> {
     Full::new(chunk.into()).map_err(|e| e).boxed()
@@ -69,6 +78,16 @@ pub trait HttpMethod: Sync + Send {
     fn put(&self, _: Request<IncomingBody>) -> InfallibleResult {
         flag_http_method_forbidden("HTTP method PUT not supported")
     }
+}
+
+#[async_trait]
+pub trait HttpCmdDispatcher: Sync + Send {
+    fn dispatch(
+        &self,
+        uri: &hyper::Uri,
+        hp: &Headers,
+        json: &String,
+    ) -> Result<Box<dyn InterfaceResponse>, Box<dyn InterfaceResponse>>;
 }
 
 #[derive(Debug, Clone)]
@@ -185,6 +204,92 @@ pub enum ContentType {
     #[default]
     Json,
     Unsupported,
+}
+
+#[derive(Debug, Default)]
+pub struct HttpReq {}
+
+impl HttpReq {
+    pub fn check_content_type_application_json(hp: &Headers) -> Result<(), ValidationError> {
+        let ct = hp.probe("Content-Type");
+        if ct.is_none()
+            || ct.is_some_and(|ct| {
+                let mut s = ct.split(";");
+                let ct = s.next().unwrap();
+                ct.eq_ignore_ascii_case("application/json")
+            })
+        {
+            Ok(())
+        } else {
+            Err(ValidationError(
+                ErrorCode::InvalidRequest,
+                BAD_CONTENT_TYPE.to_owned(),
+            ))
+        }
+    }
+
+    pub fn unpack_body(b: IncomingBody) -> Result<String, ValidationError> {
+        match b.size_ok(IncomingBody::POST_REQUEST_PAYLOAD_SIZE_MAX) {
+            Ok(_) => IncomingBody::read(b).map_err(|_| {
+                ValidationError(
+                    ErrorCode::ErrorReadingRequestBody,
+                    ERROR_READING_HTTP_BODY.to_owned(),
+                )
+            }),
+            _ => Err(ValidationError(
+                ErrorCode::PayloadTooLarge,
+                format!(
+                    "Max permitted size of the payload is {} bytes",
+                    IncomingBody::POST_REQUEST_PAYLOAD_SIZE_MAX
+                ),
+            )),
+        }
+    }
+
+    pub fn authenticate_request(
+        hp: &Headers,
+        body_json: &String,
+        jdsv: Option<&Pin<Box<dyn dull::jws::JwsDetachedSigVerifier>>>,
+    ) -> Result<(), ValidationError> {
+        let _dpop = hp.probe("DPoP");
+        let api_key = hp.probe("x-sammati-api-key");
+        let x_jws_sig = hp.probe("x-jws-signature");
+
+        // check if api_key looks ok
+        if api_key.is_none() || api_key.as_ref().is_some_and(|s| s.len() < 16) {
+            Err(ValidationError(
+                ErrorCode::Unauthorized,
+                "Bad API Key".to_owned(),
+            ))
+        } else if let Some(ds) = x_jws_sig {
+            // validate the detached signature and the content payload.
+            match jdsv {
+                Some(djv) => djv
+                    .verify(&DetachedSig::new(&ds.as_bytes()), &body_json.as_bytes())
+                    .map(|_| log::info!("Message signature verified. Request authenticated."))
+                    .map_err(|e| {
+                        log::error!("Message signature verification failed");
+                        ValidationError(
+                            match e {
+                                Grumble::Base64EncodingBad => ErrorCode::InvalidBase64Encoding,
+                                Grumble::BadDetachedSignature => {
+                                    ErrorCode::InvalidDetachedSignature
+                                }
+                                _ => ErrorCode::SignatureDoesNotMatch,
+                            },
+                            INVALID_DETACHED_SIG.to_owned(),
+                        )
+                    }),
+                _ => Err(internal_error(JWS_KEYSTORE_ACCESS)),
+            }
+        } else {
+            log::error!("Message signature missing - forbidden request");
+            Err(ValidationError(
+                ErrorCode::Unauthorized,
+                MISSING_DETACHED_SIG.to_owned(),
+            ))
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
