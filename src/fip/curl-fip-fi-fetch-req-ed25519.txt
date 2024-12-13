@@ -1,5 +1,5 @@
 
-curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40601/FI/fetch'\
+curl -v -X 'POST' 'http://fip-wap.sammati.web3pleb.org:40387/FI/fetch'\
     -H 'Accept: application/json'\
     -H 'Content-Type: application/json'\
     -H 'x-jws-signature: eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il0sImtpZCI6IktJQ0FnSUNBZ0lDQWdJQ0FnSW5WdWFYUWlPaUFpVFU5T1ZFZ2lMQTBLSUMifQ..KjAP4KwmUWkckAq7l-MQwB5LGutP4qY1Css3exdu2PO36qK8m8Pvr5Om_OJ8UWr_LTYQ9XeTDlYfwWYbqDGtCg'\
